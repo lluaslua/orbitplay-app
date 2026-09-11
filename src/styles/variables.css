@@ -1,0 +1,95 @@
+/**
+ * Design tokens do OrbitPlay.
+ *
+ * Fonte: Figma "Orbit Play" (fileKey VaWtE2wPPYL7GvMqxCY2zY), página `Design`
+ * (1:71) e prancha "01 Color" (151:6041).
+ *
+ * O app é escuro. Fundo `BW/Background #080321`, com dois glows radiais atrás
+ * do conteúdo — por isso as superfícies de card são translúcidas em vez de
+ * um hex sólido: elas precisam deixar o gradiente passar.
+ */
+:root {
+  /* --- Fundo e superfícies --- */
+  --orbit-bg: #080321; /* BW/Background */
+  --orbit-chip: rgba(243, 244, 248, 0.2); /* botões da navegação */
+  --orbit-card: rgba(243, 244, 248, 0.06);
+  --orbit-border: rgba(243, 244, 248, 0.12);
+
+  /* --- Marca e ação --- */
+  --orbit-orange: #f8643b; /* Support/S-Orange */
+  --orbit-blue: #248ff7; /* Brand/B-Blue */
+  --orbit-blue-deep: #2563eb; /* Marca/M-Azul */
+  --orbit-purple: #875af2; /* Brand/B-Purple */
+
+  /* --- Texto --- */
+  --orbit-text: #ffffff;
+  --orbit-dim: #e7e8e9;
+  --orbit-muted: #a0a3a9;
+  --orbit-faint: #585d68;
+  --orbit-chrome: #bababa;
+
+  /* --- Neutros dos componentes --- */
+  --orbit-light: #e5e5ed;
+  --orbit-medium: #c5c9ce;
+  --orbit-heavy: #8a8d91;
+  --orbit-dark: #111827;
+  --orbit-grey-dark: #0f172a;
+
+  /* --- Sistema --- */
+  --orbit-success: #1fc16b;
+  --orbit-error: #d00416;
+  --orbit-info: #1248c1;
+  --orbit-warning: #dfb400;
+  --orbit-separator: #cbd5e1;
+
+  /* --- Graphic: cores oficiais de gráfico --- */
+  --g-sapphire: #0289ff;
+  --g-amethyst: #b400ff;
+  --g-ruby: #eb3723;
+  --g-amber: #ef780b;
+  --g-topaz: #ffd52e;
+  --g-jade: #0cf8c4;
+  --g-emerald: #00ff78;
+  --g-midnight: #014580;
+  --g-royal: #5a0080;
+  --g-crimson: #761b12;
+  --g-burnt: #783c05;
+  --g-golden: #806b17;
+  --g-imperial: #067c62;
+  --g-deep: #00803c;
+
+  /* --- Tipografia: Montserrat (display/corpo) + Ubuntu (labels/navegação) --- */
+  --font-sans: 'Montserrat', 'Segoe UI', system-ui, sans-serif;
+  --font-label: 'Ubuntu', 'Montserrat', system-ui, sans-serif;
+
+  /* --- Tokens shadcn/ui sobre o fundo escuro --- */
+  --background: 253 83% 7%; /* #080321 */
+  --foreground: 0 0% 100%;
+
+  --card: 253 60% 12%;
+  --card-foreground: 0 0% 100%;
+
+  --popover: 253 60% 12%;
+  --popover-foreground: 0 0% 100%;
+
+  --primary: 16 93% 60%; /* #F8643B */
+  --primary-foreground: 0 0% 100%;
+
+  --secondary: 253 40% 20%;
+  --secondary-foreground: 0 0% 100%;
+
+  --muted: 253 40% 20%;
+  --muted-foreground: 213 5% 65%; /* #A0A3A9 */
+
+  --accent: 208 93% 56%; /* #248FF7 */
+  --accent-foreground: 0 0% 100%;
+
+  --destructive: 354 96% 41%; /* #D00416 */
+  --destructive-foreground: 0 0% 100%;
+
+  --border: 253 30% 24%;
+  --input: 253 30% 24%;
+  --ring: 208 93% 56%;
+
+  --radius: 0.75rem;
+}

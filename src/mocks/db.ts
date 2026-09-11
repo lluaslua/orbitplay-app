@@ -1,0 +1,405 @@
+/**
+ * Banco em memoria do MVP.
+ *
+ * Toda a rotina de dados do app passa por aqui. Quando o backend existir,
+ * este arquivo e o adapter somem e o axios passa a falar com a API de verdade -
+ * os contratos em `src/types` ja sao os mesmos.
+ */
+import gamesFixture from './fixtures/games.json';
+import testsFixture from './fixtures/tests.json';
+import playersFixture from './fixtures/players.json';
+import reportsFixture from './fixtures/reports.json';
+import sessionsFixture from './fixtures/sessions.json';
+
+import type {
+  Achievement,
+  AuthUser,
+  Game,
+  Participation,
+  PlayerEarningPoint,
+  Playtest,
+  Session,
+  PlayerDashboard,
+  PlayerGameTest,
+  GameAchievement,
+  GameCommunity,
+  PlayerGameHistory,
+  PlayerSessionReview,
+  PluginReport,
+  SessionOutcome,
+  SessionDetail,
+  StudioDashboard,
+  TestReport,
+  UserRole,
+} from '@/types';
+import { uid } from '@/utils/helpers';
+
+interface Account {
+  password: string;
+  user: AuthUser;
+}
+
+/** Clone profundo na inicializacao: os fixtures importados nunca sao mutados. */
+function clone<T>(value: T): T {
+  return JSON.parse(JSON.stringify(value)) as T;
+}
+
+/**
+ * Reancora o fim da janela de testes na hora em que o app abriu.
+ *
+ * A capa do jogo mostra uma contagem regressiva ("Termina em 27h 32m"). Com uma
+ * data fixa no fixture, ela venceria e o card passaria a exibir um prazo
+ * negativo depois de um dia — num MVP mockado, sem backend para renovar nada.
+ */
+function reancorarPrazos(games: Game[]): Game[] {
+  const VINTE_SETE_H_TRINTA_DOIS = (27 * 60 + 32) * 60 * 1000;
+
+  return games.map((game) =>
+    game.endsAt
+      ? { ...game, endsAt: new Date(Date.now() + VINTE_SETE_H_TRINTA_DOIS).toISOString() }
+      : game,
+  );
+}
+
+/**
+ * Mesmo problema de `reancorarPrazos`, agora nas tabelas de teste: o desenho
+ * mostra "27h 32m 54s" e um prazo fixo no fixture já nasceria vencido.
+ */
+function reancorarTestes<T extends { expiresAt: string | null }>(linhas: T[]): T[] {
+  const VINTE_SETE_H_TRINTA_DOIS = (27 * 60 + 32) * 60 * 1000;
+
+  return linhas.map((linha) =>
+    linha.expiresAt
+      ? { ...linha, expiresAt: new Date(Date.now() + VINTE_SETE_H_TRINTA_DOIS).toISOString() }
+      : linha,
+  );
+}
+
+export const db = {
+  games: reancorarPrazos(clone(gamesFixture) as unknown as Game[]),
+  tests: clone(testsFixture) as unknown as Playtest[],
+  sessions: clone(sessionsFixture) as unknown as Session[],
+  accounts: clone(playersFixture.accounts) as unknown as Account[],
+  achievements: clone(playersFixture.achievements) as unknown as Achievement[],
+  participations: clone(playersFixture.participations) as unknown as Participation[],
+  earnings: clone(playersFixture.earnings) as unknown as PlayerEarningPoint[],
+  testReport: clone(reportsFixture.testReport) as unknown as TestReport,
+  sessionDetail: clone(reportsFixture.sessionDetail) as unknown as SessionDetail,
+  pluginReport: clone(reportsFixture.pluginReport) as unknown as PluginReport,
+  studioDashboard: clone(reportsFixture.studioDashboard) as unknown as StudioDashboard,
+  playerDashboard: clone(playersFixture.playerDashboard) as unknown as PlayerDashboard,
+  gameTests: Object.fromEntries(
+    Object.entries(clone(playersFixture.gameTests) as unknown as Record<string, PlayerGameTest[]>).map(
+      ([jogo, linhas]) => [jogo, reancorarTestes(linhas)],
+    ),
+  ) as Record<string, PlayerGameTest[]>,
+  sessionReview: clone(playersFixture.sessionReview) as unknown as PlayerSessionReview,
+  gameCommunity: clone(playersFixture.gameCommunity) as unknown as GameCommunity,
+  gameAchievements: clone(playersFixture.gameAchievements) as unknown as GameAchievement[],
+  gameMyTests: reancorarTestes(
+    clone(playersFixture.gameMyTests) as unknown as PlayerGameHistory[],
+  ),
+  sessionOutcome: clone(playersFixture.sessionOutcome) as unknown as SessionOutcome,
+};
+
+/**
+ * Testes de um jogo na visão do jogador (Figma `199:1291`).
+ *
+ * Só o Horizon Chase 2 tem a tabela desenhada no arquivo; os outros jogos caem
+ * numa lista derivada dos próprios testes, para a tela não abrir vazia.
+ */
+export function listPlayerGameTests(gameId: string): PlayerGameTest[] {
+  const desenhados = db.gameTests[gameId];
+  if (desenhados) return desenhados;
+
+  return listTests(gameId).map((teste) => ({
+    id: teste.id,
+    name: teste.title,
+    kind: teste.kind,
+    kindTone: 'topaz' as const,
+    expiresAt: teste.expiresAt,
+    estimatedMinutes: teste.estimatedMinutes,
+    slotsTaken: teste.currentParticipants,
+    slotsTotal: teste.budget.slots,
+    progress: 0,
+    rewardCents: teste.budget.rewardPerSessionCents,
+    action: 'START' as const,
+  }));
+}
+
+// ---------------------------------------------------------------------------
+// Autenticacao
+// ---------------------------------------------------------------------------
+
+export function findAccount(email: string, password: string): Account | undefined {
+  return db.accounts.find(
+    (account) =>
+      account.user.email.toLowerCase() === email.trim().toLowerCase() &&
+      account.password === password,
+  );
+}
+
+export function findUserById(id: string): AuthUser | undefined {
+  return db.accounts.find((account) => account.user.id === id)?.user;
+}
+
+/** Token opaco no formato do JWT so para o app ter algo real para guardar. */
+export function issueToken(userId: string, role: UserRole): string {
+  const header = btoa(JSON.stringify({ alg: 'none', typ: 'JWT' }));
+  const payload = btoa(
+    JSON.stringify({
+      sub: userId,
+      role,
+      iat: Math.floor(Date.now() / 1000),
+      exp: Math.floor(Date.now() / 1000) + 60 * 60 * 24 * 7,
+    }),
+  );
+  return `${header}.${payload}.mock-signature`;
+}
+
+// ---------------------------------------------------------------------------
+// Jogos
+// ---------------------------------------------------------------------------
+
+export function listGames(studioId?: string): Game[] {
+  return studioId ? db.games.filter((game) => game.studioId === studioId) : db.games;
+}
+
+export function getGame(id: string): Game | undefined {
+  return db.games.find((game) => game.id === id);
+}
+
+export function createGame(input: Partial<Game>): Game {
+  const now = new Date().toISOString();
+  const game: Game = {
+    id: uid('game'),
+    studioId: 'studio-001',
+    studioName: 'Blackstar games',
+    name: input.name ?? 'Novo jogo',
+    description: input.description ?? '',
+    shortDescription: input.shortDescription ?? '',
+    bannerUrl: input.bannerUrl ?? '/assets/backgrounds/default-banner.svg',
+    thumbnailUrl: input.thumbnailUrl ?? input.bannerUrl ?? '/assets/images/default-game.svg',
+    status: 'DRAFT',
+    genres: input.genres ?? [],
+    platforms: input.platforms ?? ['PC'],
+    buildVersion: '0.1.0-draft',
+    minRewardCents: 0,
+    maxRewardCents: 0,
+    estimatedMinutes: 0,
+    stats: {
+      activeTests: 0,
+      completedTests: 0,
+      totalPlayers: 0,
+      averageRating: 0,
+      bugsReported: 0,
+      pendingRewards: 0,
+      remainingRewardCents: 0,
+      playingNow: 0,
+      campaignProgress: 0,
+    },
+    endsAt: null,
+    isNew: true,
+    createdAt: now,
+    updatedAt: now,
+    specs: input.specs ?? {
+      minOs: 'Windows 10 64-bit',
+      minCpu: 'A definir',
+      minRam: '4 GB',
+      minGpu: 'A definir',
+      diskSpace: 'A definir',
+      requiresController: false,
+      requiresMicrophone: false,
+      requiresWebcam: false,
+    },
+  };
+  db.games.unshift(game);
+  return game;
+}
+
+// ---------------------------------------------------------------------------
+// Testes
+// ---------------------------------------------------------------------------
+
+export function listTests(gameId?: string): Playtest[] {
+  return gameId ? db.tests.filter((test) => test.gameId === gameId) : db.tests;
+}
+
+export function getTest(id: string): Playtest | undefined {
+  return db.tests.find((test) => test.id === id);
+}
+
+export function createTest(input: Partial<Playtest>): Playtest {
+  const game = getGame(input.gameId ?? '');
+  const now = new Date();
+  const durationDays = input.budget?.durationDays ?? 14;
+
+  const test: Playtest = {
+    id: uid('test'),
+    gameId: input.gameId ?? '',
+    gameName: game?.name ?? 'Jogo',
+    gameThumbnailUrl: game?.thumbnailUrl ?? '/assets/images/default-game.svg',
+    title: input.title ?? 'Novo teste',
+    model: input.model ?? 'FREE_EXPLORATION',
+    status: 'ACTIVE',
+    kind: input.kind ?? 'DEMO ABERTA',
+    plugin: input.plugin ?? false,
+    endedAt: null,
+    instructions: input.instructions ?? '',
+    requiresRecording: input.requiresRecording ?? true,
+    requiresMicrophone: input.requiresMicrophone ?? false,
+    requiresWebcam: input.requiresWebcam ?? false,
+    questions: input.questions ?? [],
+    audience: input.audience ?? {
+      locations: ['BRASIL'],
+      playerType: 'CASUAL',
+      archetype: 'ALL',
+      minAge: 16,
+      maxAge: 45,
+    },
+    budget: input.budget ?? {
+      slots: 20,
+      untilDisabled: false,
+      basePriceCents: 59,
+      audienceCents: 0,
+      boostCents: 0,
+      pricePerTestCents: 59,
+      totalCents: 1180,
+      rewardPerSessionCents: 250,
+      durationDays: 14,
+    },
+    currentParticipants: 0,
+    estimatedMinutes: input.estimatedMinutes ?? 25,
+    buildFileName: input.buildFileName ?? 'build.zip',
+    buildSizeMb: input.buildSizeMb ?? 0,
+    createdAt: now.toISOString(),
+    startsAt: now.toISOString(),
+    expiresAt: new Date(now.getTime() + durationDays * 86_400_000).toISOString(),
+  };
+
+  db.tests.unshift(test);
+
+  // O teste novo aparece imediatamente nas metricas do jogo.
+  if (game) {
+    game.stats.activeTests += 1;
+    game.updatedAt = now.toISOString();
+    if (game.status === 'DRAFT') game.status = 'ACTIVE';
+  }
+
+  // Relatorio nasce vazio ate a primeira sessao chegar.
+  return test;
+}
+
+// ---------------------------------------------------------------------------
+// Sessoes e relatorios
+// ---------------------------------------------------------------------------
+
+export function listSessions(testId?: string): Session[] {
+  return testId ? db.sessions.filter((session) => session.testId === testId) : db.sessions;
+}
+
+export function getSession(id: string): Session | undefined {
+  return db.sessions.find((session) => session.id === id);
+}
+
+/**
+ * Relatório de um teste (Figma `326:6452`).
+ *
+ * O conteúdo é o do arquivo, então vem pronto do fixture; só o título e o jogo
+ * acompanham o teste que a rota pediu, para o relatório de outro teste não
+ * abrir com o nome errado.
+ */
+export function buildReport(testId: string): TestReport | undefined {
+  const test = getTest(testId);
+  if (!test) return undefined;
+
+  return {
+    ...db.testReport,
+    testId,
+    testTitle: test.title,
+    gameId: test.gameId,
+    kind: test.kind,
+  };
+}
+
+/**
+ * Relatório do plug-in de telemetria (Figma `427:3376`).
+ *
+ * Mesma regra do relatório do teste: o conteúdo é o do arquivo e só o teste e o
+ * jogo acompanham a rota.
+ */
+export function buildPluginReport(testId: string): PluginReport | undefined {
+  const test = getTest(testId);
+  if (!test) return undefined;
+
+  return { ...db.pluginReport, testId, testName: test.title, gameId: test.gameId, testKind: test.kind };
+}
+
+/**
+ * A tabela, o benchmark e os números vêm prontos do fixture, porque são o
+ * conteúdo exato do Figma.
+ *
+ * A única exceção é `gamesTested`, derivado da lista de jogos — cadastrar um
+ * jogo mexe no painel de verdade. `overview.activeTests` ainda não é derivado
+ * de `db.tests` porque o fixture de testes é o conteúdo antigo e devolveria 3
+ * onde o desenho pede 5; quando ele for refeito, passa a ser calculado aqui.
+ */
+export function getStudioDashboard(): StudioDashboard {
+  return {
+    ...db.studioDashboard,
+    highlights: {
+      ...db.studioDashboard.highlights,
+      gamesTested: db.games.length,
+    },
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Jogador
+// ---------------------------------------------------------------------------
+
+export function getPlayerProfile() {
+  const account = db.accounts.find((a) => a.user.role === 'PLAYER');
+  if (!account || account.user.role !== 'PLAYER') {
+    throw new Error('Conta de jogador nao encontrada no mock');
+  }
+  return account.user;
+}
+
+export function listParticipations(): Participation[] {
+  return db.participations;
+}
+
+export function getParticipationByTest(testId: string): Participation | undefined {
+  return db.participations.find((p) => p.testId === testId);
+}
+
+export function upsertParticipation(testId: string, patch: Partial<Participation>): Participation {
+  const existing = getParticipationByTest(testId);
+  if (existing) {
+    Object.assign(existing, patch);
+    return existing;
+  }
+
+  const test = getTest(testId);
+  const participation: Participation = {
+    id: uid('part'),
+    testId,
+    gameId: test?.gameId ?? '',
+    gameName: test?.gameName ?? '',
+    thumbnailUrl: test?.gameThumbnailUrl ?? '/assets/images/default-game.svg',
+    status: 'IN_PROGRESS',
+    rewardCents: test?.budget.rewardPerSessionCents ?? 0,
+    rewardStatus: 'PENDING',
+    xpEarned: 0,
+    startedAt: new Date().toISOString(),
+    ...patch,
+  };
+  db.participations.unshift(participation);
+  return participation;
+}
+
+export function listAchievements(): Achievement[] {
+  return db.achievements;
+}
+

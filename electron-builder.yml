@@ -1,0 +1,45 @@
+appId: com.orbitplay.desktop
+productName: OrbitPlay
+copyright: Copyright (c) 2026 OrbitPlay
+
+directories:
+  output: release
+  buildResources: build
+
+files:
+  - dist/**/*
+  - dist-electron/**/*
+  - package.json
+
+asar: true
+
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+  artifactName: OrbitPlay-${version}-setup.${ext}
+
+nsis:
+  # A caixa "Ver tutorial" da pagina final vem daqui (build/installer.nsh).
+  include: build/installer.nsh
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: OrbitPlay
+
+mac:
+  target:
+    - target: dmg
+      arch:
+        - x64
+        - arm64
+  category: public.app-category.developer-tools
+  artifactName: OrbitPlay-${version}-${arch}.${ext}
+
+linux:
+  target:
+    - AppImage
+  category: Development

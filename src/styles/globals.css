@@ -1,0 +1,118 @@
+@import './variables.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  /**
+   * O app é escuro em todo lugar: fundo #080321 com dois glows radiais atrás
+   * do conteúdo, como no Figma (as duas elipses gigantes por trás dos frames).
+   */
+  body {
+    @apply bg-orbit-bg text-orbit-text font-sans antialiased;
+    font-size: 16px;
+    overscroll-behavior: none;
+  }
+
+  /**
+   * Nada de exibição se seleciona nem se arrasta.
+   *
+   * Isto é um aplicativo, não uma página: arrastar o cursor sobre um título ou
+   * um número não deve pintar o texto de azul, e uma capa de jogo não deve sair
+   * voando para a área de trabalho quando o usuário arrasta o mouse por cima.
+   *
+   * A exceção é campo de formulário, onde selecionar É a edição — sem isso não
+   * dá para marcar um trecho para reescrever, nem usar Ctrl+A dentro do campo.
+   */
+  body {
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
+  input,
+  textarea,
+  select,
+  [contenteditable='true'] {
+    -webkit-user-select: text;
+    user-select: text;
+  }
+
+  /**
+   * `-webkit-user-drag` é o que impede a imagem de virar um arquivo arrastável;
+   * vale para o ícone em SVG e para o link, que arrastaria a própria URL.
+   */
+  img,
+  svg,
+  a {
+    -webkit-user-drag: none;
+  }
+
+  ::selection {
+    background: rgba(248, 100, 59, 0.35);
+  }
+
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: rgba(243, 244, 248, 0.18);
+    border-radius: 999px;
+    border: 2px solid transparent;
+    background-clip: content-box;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgba(243, 244, 248, 0.3);
+    background-clip: content-box;
+  }
+}
+
+@layer components {
+  /** Glow do fundo: reproduz as duas elipses que ficam atrás de cada tela. */
+  .orbit-glow {
+    background-image:
+      radial-gradient(1100px 900px at 78% 12%, rgba(135, 90, 242, 0.22), transparent 62%),
+      radial-gradient(900px 700px at 8% 88%, rgba(36, 143, 247, 0.14), transparent 60%);
+  }
+
+  /** Superfície padrão dos cards: translúcida, para o glow atravessar. */
+  .orbit-card {
+    @apply rounded-3xl border border-orbit-border bg-orbit-card;
+  }
+
+  .orbit-card-hover {
+    @apply transition-colors duration-200 hover:bg-orbit-card-hover;
+  }
+
+  .orbit-gradient-text {
+    @apply bg-orbit-gradient bg-clip-text text-transparent;
+  }
+
+  .orbit-skeleton {
+    @apply relative overflow-hidden rounded-md bg-orbit-card;
+  }
+  .orbit-skeleton::after {
+    @apply absolute inset-0 animate-shimmer;
+    content: '';
+    background-image: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.08), transparent);
+    transform: translateX(-100%);
+  }
+
+  .orbit-focus-ring {
+    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orbit-blue focus-visible:ring-offset-2 focus-visible:ring-offset-orbit-bg;
+  }
+}

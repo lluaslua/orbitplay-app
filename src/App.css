@@ -1,0 +1,36 @@
+/* Estilos pontuais do shell da aplicacao (o resto vive no Tailwind). */
+
+/* Faixa arrastavel da janela no Electron - a navbar usa esta classe. */
+.app-drag-region {
+  -webkit-app-region: drag;
+}
+.app-no-drag,
+.app-drag-region button,
+.app-drag-region a,
+.app-drag-region input {
+  -webkit-app-region: no-drag;
+}
+
+/**
+ * Login: a janela do Electron é transparente para o canto arredondado aparecer
+ * (ver o comentário em electron/main.ts). Se o `body` pintasse o fundo escuro,
+ * ele pintaria o retângulo inteiro e o canto voltaria a ser reto — então aqui o
+ * fundo sai, e quem pinta é o cartão.
+ */
+html.janela-login,
+html.janela-login body {
+  background: none;
+  background-color: transparent;
+}
+
+/* Tooltip do Recharts sempre no tema escuro */
+.recharts-default-tooltip {
+  background-color: #1e1e3f !important;
+  border: 1px solid #2e2e5a !important;
+  border-radius: 10px !important;
+}
+
+.recharts-cartesian-axis-tick text {
+  fill: #a0a0c0;
+  font-size: 12px;
+}
