@@ -68,7 +68,7 @@ O electron-builder baixa o pacote `winCodeSign` para pegar o `rcedit`, que grava
 
 ## Stack
 
-React 18 · TypeScript · Vite 5 · Electron 33 · Tailwind 3 · Zustand · TanStack Query · React Hook Form + Zod · Recharts · Radix UI · Axios
+React 18 · TypeScript · Vite 6 · Electron 44 · Tailwind 3 · Zustand · TanStack Query · React Hook Form + Zod · Recharts · Radix UI · Axios · Vitest
 
 ## Como os dados mockados funcionam
 
