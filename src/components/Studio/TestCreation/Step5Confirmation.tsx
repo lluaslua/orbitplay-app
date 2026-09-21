@@ -38,7 +38,8 @@ export function Step5Confirmation() {
         </div>
       </div>
 
-      <ResumoCompra />
+      {/* Na confirmação o card do resumo não tem fundo, a borda é branca e o respiro é 24 (`757:6719`). */}
+      <ResumoCompra className="border-white bg-transparent p-6" />
 
       <div className="flex items-center gap-6">
         <Link

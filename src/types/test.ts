@@ -31,6 +31,8 @@ export interface FormQuestion {
   label: string;
   helperText?: string;
   required: boolean;
+  /** Imagem anexada pelo botão ao lado de "Obrigatória", já reduzida (data URL WebP). */
+  imageUrl?: string;
   options?: string[];
   scaleMin?: number;
   scaleMax?: number;

@@ -43,6 +43,8 @@ export function useCreateTest() {
       client.invalidateQueries({ queryKey: ['games'] });
       client.invalidateQueries({ queryKey: queryKeys.studioDashboard });
       client.invalidateQueries({ queryKey: queryKeys.playerCatalog });
+      // A primeira build de um jogo abre o chat da comunidade dele.
+      client.invalidateQueries({ queryKey: ['community'] });
       client.setQueryData(queryKeys.test(test.id), test);
     },
   });

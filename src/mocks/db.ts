@@ -10,10 +10,15 @@ import testsFixture from './fixtures/tests.json';
 import playersFixture from './fixtures/players.json';
 import reportsFixture from './fixtures/reports.json';
 import sessionsFixture from './fixtures/sessions.json';
+import communityFixture from './fixtures/community.json';
 
 import type {
   Achievement,
   AuthUser,
+  ChatAuthor,
+  ChatMessage,
+  ChatRole,
+  CommunityChannel,
   Game,
   Participation,
   PlayerEarningPoint,
@@ -94,7 +99,15 @@ export const db = {
     ),
   ) as Record<string, PlayerGameTest[]>,
   sessionReview: clone(playersFixture.sessionReview) as unknown as PlayerSessionReview,
-  gameCommunity: clone(playersFixture.gameCommunity) as unknown as GameCommunity,
+  communityChannels: clone(communityFixture.channels) as CommunityChannel[],
+  communityMembers: clone(communityFixture.members) as unknown as CommunityMember[],
+  /** Mensagens por jogo. Jogo sem entrada ainda não recebeu nenhuma. */
+  communityMessages: Object.fromEntries(
+    Object.entries(clone(communityFixture.messages)).map(([jogo, mensagens]) => [
+      jogo,
+      mensagens.map((mensagem) => ({ ...mensagem, reactedBy: [] as string[] })),
+    ]),
+  ) as Record<string, StoredMessage[]>,
   gameAchievements: clone(playersFixture.gameAchievements) as unknown as GameAchievement[],
   gameMyTests: reancorarTestes(
     clone(playersFixture.gameMyTests) as unknown as PlayerGameHistory[],
@@ -401,5 +414,163 @@ export function upsertParticipation(testId: string, patch: Partial<Participation
 
 export function listAchievements(): Achievement[] {
   return db.achievements;
+}
+
+// ---------------------------------------------------------------------------
+// Comunidade
+// ---------------------------------------------------------------------------
+
+/**
+ * Como uma conta aparece no chat.
+ *
+ * As quatro pessoas do Figma estão no fixture — inclusive o Gusmão, que é quem
+ * fala pela conta do estúdio (Blackstar games).
+ */
+interface CommunityMember {
+  userId: string;
+  name: string;
+  role: ChatRole;
+  avatarUrl: string;
+  online: boolean;
+}
+
+/** Mensagem como o "banco" guarda: o autor só pelo id; o resto sai na leitura. */
+interface StoredMessage {
+  id: string;
+  channelId: string;
+  authorId: string;
+  text: string;
+  sentAt: string;
+  /** Ids de quem reagiu. */
+  reactedBy: string[];
+}
+
+/**
+ * O chat abre quando o jogo tem build para testar — ou seja, algum teste.
+ *
+ * `listPlayerGameTests` cobre os dois casos do mock: os testes criados pelo
+ * estúdio e a tabela desenhada do Horizon Chase 2, que não passa por `db.tests`.
+ */
+export function communityIsOpen(gameId: string): boolean {
+  return listPlayerGameTests(gameId).length > 0;
+}
+
+/**
+ * O jogador já participou de algum teste do jogo?
+ *
+ * Vale a participação registrada — iniciar um teste cria uma — e, no Horizon
+ * Chase 2, a própria tabela desenhada, que mostra testes em andamento, baixando
+ * e em análise: coisa que só existe para quem começou. O mock tem um jogador
+ * só, então as participações são todas dele.
+ */
+function playerTestedGame(gameId: string): boolean {
+  const registrada = db.participations.some(
+    (participacao) => (getTest(participacao.testId)?.gameId ?? participacao.gameId) === gameId,
+  );
+  const desenhada = (db.gameTests[gameId] ?? []).some((teste) =>
+    ['CONTINUE', 'DOWNLOADING', 'REVIEW'].includes(teste.action),
+  );
+
+  return registrada || desenhada;
+}
+
+/** Quem entra no chat: o estúdio dono do jogo e os testers que já jogaram. */
+export function canAccessCommunity(user: AuthUser, gameId: string): boolean {
+  if (user.role === 'STUDIO') return getGame(gameId)?.studioId === user.id;
+  return playerTestedGame(gameId);
+}
+
+/** Uma conta fora do fixture entra com o nome e a foto do cadastro. */
+function memberOf(userId: string): CommunityMember {
+  const conhecido = db.communityMembers.find((membro) => membro.userId === userId);
+  if (conhecido) return conhecido;
+
+  const user = findUserById(userId);
+  const qa = user?.role === 'PLAYER' && user.player.tier === 'QA';
+
+  return {
+    userId,
+    name: user?.name ?? 'Usuário',
+    role: user?.role === 'STUDIO' ? 'DEV' : qa ? 'QA' : 'ELITE',
+    avatarUrl: user?.avatarUrl ?? '',
+    online: false,
+  };
+}
+
+function authorOf(userId: string): ChatAuthor {
+  const { name, role, avatarUrl } = memberOf(userId);
+  return { id: userId, name, role, avatarUrl };
+}
+
+/** A mensagem do ponto de vista de quem está vendo: `own` e `reacted` são dele. */
+function toChatMessage(guardada: StoredMessage, viewerId: string): ChatMessage {
+  return {
+    id: guardada.id,
+    channelId: guardada.channelId,
+    author: authorOf(guardada.authorId),
+    // Quem está vendo está com o app aberto, então está online.
+    online: memberOf(guardada.authorId).online || guardada.authorId === viewerId,
+    text: guardada.text,
+    sentAt: guardada.sentAt,
+    own: guardada.authorId === viewerId,
+    reacted: guardada.reactedBy.includes(viewerId),
+  };
+}
+
+function messagesOf(gameId: string): StoredMessage[] {
+  if (!db.communityMessages[gameId]) db.communityMessages[gameId] = [];
+  return db.communityMessages[gameId];
+}
+
+export function findChannel(channelId: string): CommunityChannel | undefined {
+  return db.communityChannels.find((canal) => canal.id === channelId);
+}
+
+export function getCommunity(gameId: string, viewerId: string): GameCommunity {
+  return { gameId, channels: db.communityChannels, me: authorOf(viewerId) };
+}
+
+export function listChannelMessages(
+  gameId: string,
+  channelId: string,
+  viewerId: string,
+): ChatMessage[] {
+  return messagesOf(gameId)
+    .filter((mensagem) => mensagem.channelId === channelId)
+    .map((mensagem) => toChatMessage(mensagem, viewerId));
+}
+
+export function postChannelMessage(
+  gameId: string,
+  channelId: string,
+  authorId: string,
+  text: string,
+): ChatMessage {
+  const guardada: StoredMessage = {
+    id: uid('msg'),
+    channelId,
+    authorId,
+    text,
+    sentAt: new Date().toISOString(),
+    reactedBy: [],
+  };
+  messagesOf(gameId).push(guardada);
+  return toChatMessage(guardada, authorId);
+}
+
+/** Liga ou desliga a reação de quem pediu. `undefined` se a mensagem não é deste jogo. */
+export function toggleReaction(
+  gameId: string,
+  messageId: string,
+  userId: string,
+): ChatMessage | undefined {
+  const guardada = messagesOf(gameId).find((mensagem) => mensagem.id === messageId);
+  if (!guardada) return undefined;
+
+  guardada.reactedBy = guardada.reactedBy.includes(userId)
+    ? guardada.reactedBy.filter((id) => id !== userId)
+    : [...guardada.reactedBy, userId];
+
+  return toChatMessage(guardada, userId);
 }
 

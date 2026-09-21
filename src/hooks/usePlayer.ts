@@ -13,7 +13,6 @@ import type {
   SessionResult,
   SessionSubmission,
   GameAchievement,
-  GameCommunity,
   PlayerGameHistory,
 } from '@/types';
 
@@ -55,6 +54,8 @@ export function useStartTest() {
       client.invalidateQueries({ queryKey: queryKeys.playerCatalog });
       client.invalidateQueries({ queryKey: queryKeys.participations });
       client.invalidateQueries({ queryKey: queryKeys.playerDashboard });
+      // Participar de um teste abre para o jogador o chat da comunidade do jogo.
+      client.invalidateQueries({ queryKey: ['community'] });
     },
   });
 }
@@ -106,15 +107,6 @@ export function useSessionOutcome() {
   return useQuery({
     queryKey: ['player', 'session-outcome'],
     queryFn: () => get<SessionOutcome>('/player/session-outcome'),
-  });
-}
-
-/** Chat da aba "Comunidade" na tela do jogo (Figma `395:2656`). */
-export function useGameCommunity(gameId: string | undefined) {
-  return useQuery({
-    queryKey: ['player', 'games', gameId, 'community'],
-    queryFn: () => get<GameCommunity>(`/player/games/${gameId}/community`),
-    enabled: !!gameId,
   });
 }
 

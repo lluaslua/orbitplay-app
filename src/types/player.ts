@@ -172,32 +172,6 @@ export interface SessionResult {
 }
 
 /**
- * Chat da aba "Comunidade" na tela do jogo — Figma `395:2656`.
- *
- * A cor do anel do avatar e a do selo vêm do papel de quem fala: verde para o
- * desenvolvedor do jogo, vermelho para QA, roxo para o próprio jogador.
- */
-export type ChatRole = 'DEV' | 'QA' | 'ELITE';
-
-export interface ChatMessage {
-  id: string;
-  author: string;
-  role: ChatRole;
-  avatarUrl: string;
-  text: string;
-  sentAt: string;
-  /** `true` no que o próprio jogador escreveu: balão azul, alinhado à direita. */
-  own: boolean;
-}
-
-export interface GameCommunity {
-  channels: string[];
-  /** Canal aberto no desenho. */
-  selected: string;
-  messages: ChatMessage[];
-}
-
-/**
  * Linha da aba "Meus testes" — Figma `224:5627`.
  *
  * Mesma tabela dos testes disponíveis, mas olhando para trás: a coluna de ação

@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { MoreVertical } from 'lucide-react';
+import { ComunidadeJogo } from '@/components/Common/ComunidadeJogo';
 import { PageHeading } from '@/components/Common/PageHeading';
-import { ComunidadeJogo } from '@/components/Player/ComunidadeJogo';
 import { ConquistasJogo } from '@/components/Player/ConquistasJogo';
 import {
   EmptyState,

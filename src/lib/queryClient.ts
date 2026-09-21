@@ -15,6 +15,10 @@ export const queryKeys = {
   playerCatalog: ['player', 'catalog'] as const,
   participations: ['player', 'participations'] as const,
   achievements: ['player', 'achievements'] as const,
+  /** Chat do jogo. Quem vê entra na chave: `own` e `reacted` mudam de pessoa para pessoa. */
+  community: (gameId: string, viewerId: string) => ['community', gameId, viewerId] as const,
+  communityMessages: (gameId: string, viewerId: string, channelId: string) =>
+    ['community', gameId, viewerId, channelId] as const,
 };
 
 export const queryClient = new QueryClient({

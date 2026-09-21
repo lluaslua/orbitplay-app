@@ -1,6 +1,5 @@
 import { useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { ArrowLeft } from 'lucide-react';
 import { PageHeading } from '@/components/Common/PageHeading';
 import {
   FormasDePagamento,
@@ -30,6 +29,22 @@ import { cn } from '@/utils/helpers';
  * vem depois de "Orçamento" e não ganha bolinha, como no arquivo.
  */
 const ULTIMA_ETAPA = 5;
+
+/**
+ * Quanto da barra fica azul em cada etapa, medido nos frames — ela não anda em
+ * passos iguais: `317:2262` 285,7 de 1728 · `319:7290` 576 de 1728 ·
+ * `319:7985` 861,7 de 1728 · `319:9516` 933,5 de 1122.
+ */
+const PROGRESSO_DA_ETAPA: Record<number, number> = {
+  1: 285.7 / 1728,
+  2: 576 / 1728,
+  3: 861.7 / 1728,
+  4: 933.5 / 1122,
+};
+
+/** O Nightfall do "Pagar e finalizar!" (`438:4329`) vem inclinado a 158,77° no arquivo. */
+const DEGRADE_PAGAR =
+  'linear-gradient(158.77deg, rgb(36, 143, 247) 18.801%, rgb(135, 90, 242) 81.199%)';
 
 export default function StudioNewTestPage() {
   const createTest = useCreateTest();
@@ -105,10 +120,10 @@ export default function StudioNewTestPage() {
               }}
             />
 
-            <div className="mt-6 h-1.5 w-full overflow-hidden rounded-full bg-orbit-dim/25">
+            <div className="mt-6 h-1.5 w-full overflow-hidden rounded-full bg-orbit-faint">
               <div
                 className="h-full rounded-full bg-orbit-blue transition-[width]"
-                style={{ width: `${(currentStep / ULTIMA_ETAPA) * 100}%` }}
+                style={{ width: `${(PROGRESSO_DA_ETAPA[currentStep] ?? 1) * 100}%` }}
               />
             </div>
           </>
@@ -132,16 +147,7 @@ export default function StudioNewTestPage() {
         {/* Etapas 4 e 5 trazem o próprio rodapé: a 4 no resumo lateral, a 5 no fim da tela. */}
         {!naEtapaDeCompra && !naConfirmacao && (
           <div className="mt-6 flex items-center gap-6">
-            {currentStep > 1 && (
-              <button
-                type="button"
-                onClick={previousStep}
-                className="flex items-center gap-1 text-button text-orbit-blue hover:underline"
-              >
-                <ArrowLeft className="size-6" />
-                Voltar
-              </button>
-            )}
+            {currentStep > 1 && <Voltar onClick={previousStep} />}
 
             <span className="h-0.5 flex-1 rounded-full bg-orbit-border/40" />
 
@@ -153,27 +159,22 @@ export default function StudioNewTestPage() {
       </Card>
 
       {naEtapaDeCompra && (
-        <aside className="w-[420px] shrink-0">
+        // 582px no desenho (1186 + 24 + 582 = 1792); abaixo do `figma` o card da etapa precisa do espaço.
+        <aside className="w-[420px] shrink-0 figma:w-[582px]">
           <ResumoCompra>
             <FormasDePagamento />
 
-            <div className="mt-2 flex items-center justify-between gap-4">
-              <button
-                type="button"
-                onClick={previousStep}
-                className="flex items-center gap-1 text-button text-orbit-blue hover:underline"
-              >
-                <ArrowLeft className="size-6" />
-                Voltar
-              </button>
+            <div className="flex items-center justify-between gap-6">
+              <Voltar onClick={previousStep} />
 
               <Button
                 variant="nightfall"
                 onClick={publicar}
                 loading={createTest.isPending}
                 disabled={!podeAvancar}
+                style={{ backgroundImage: DEGRADE_PAGAR }}
               >
-                Pagar e finalizar
+                Pagar e finalizar!
               </Button>
             </div>
           </ResumoCompra>
@@ -181,5 +182,19 @@ export default function StudioNewTestPage() {
       )}
       </div>
     </div>
+  );
+}
+
+/** "Voltar" com o `arrow_left_line` do arquivo (`438:4339`). */
+function Voltar({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex items-center gap-1 text-button text-orbit-blue hover:underline"
+    >
+      <img src="./icons/figma/voltar.svg" alt="" className="size-6" />
+      Voltar
+    </button>
   );
 }

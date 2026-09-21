@@ -1,9 +1,11 @@
+import { useRef, useState, type ChangeEvent } from 'react';
 import { Eye, Plus } from 'lucide-react';
-import { Checkbox, IconButton, Input, SelectField } from '@/components/UI';
+import { Checkbox, FieldError, IconButton, Input, SelectField } from '@/components/UI';
 import { useTestStore } from '@/stores/testStore';
 import type { FormQuestion, QuestionType } from '@/types';
 import { QUESTION_TYPES } from '@/utils/constants';
 import { cn } from '@/utils/helpers';
+import { reduzirImagem } from '@/utils/imagem';
 
 /**
  * ETAPA 2 — A avaliação do seu teste. Figma: `319:7290`, card `319:7695`.
@@ -11,6 +13,10 @@ import { cn } from '@/utils/helpers';
  * Cada pergunta é um card: linha de tipo (seletor + botão de imagem +
  * "Obrigatória"), divisória, o enunciado, o campo de resposta, outra divisória
  * e a fileira de ações. Os campos têm 390px fixos, como no arquivo.
+ *
+ * O botão de imagem anexa uma imagem à pergunta. O arquivo só desenha o botão,
+ * então a imagem escolhida entra logo abaixo do enunciado, na largura dos
+ * campos, com "Trocar" e "Remover" no mesmo estilo das ações do card.
  *
  * O rodapé com "Voltar", "Pré-visualizar" e "Próximo" fica na casca do fluxo,
  * em `pages/studio/tests/new.tsx`.
@@ -87,6 +93,24 @@ function CardPergunta({
   onDeletar: () => void;
 }) {
   const tipo = QUESTION_TYPES.find((item) => item.id === pergunta.type);
+  const seletorDeImagem = useRef<HTMLInputElement>(null);
+  const [erroImagem, setErroImagem] = useState<string | null>(null);
+
+  const escolherImagem = () => seletorDeImagem.current?.click();
+
+  async function receberImagem(evento: ChangeEvent<HTMLInputElement>) {
+    const arquivo = evento.target.files?.[0];
+    // Zera o campo para o mesmo arquivo poder ser escolhido de novo.
+    evento.target.value = '';
+    if (!arquivo) return;
+
+    try {
+      onChange({ imageUrl: await reduzirImagem(arquivo) });
+      setErroImagem(null);
+    } catch {
+      setErroImagem('Não foi possível abrir essa imagem. Use PNG, JPG ou WebP.');
+    }
+  }
 
   return (
     <section className="flex flex-col items-start gap-6 rounded-3xl border border-white p-6">
@@ -108,12 +132,21 @@ function CardPergunta({
         </SelectField>
 
         <IconButton
-          aria-label="Adicionar imagem à pergunta"
-          title="Ainda não disponível"
+          aria-label={
+            pergunta.imageUrl ? 'Trocar a imagem da pergunta' : 'Adicionar imagem à pergunta'
+          }
+          onClick={escolherImagem}
           className="mt-6 shrink-0"
         >
           <img src="./icons/figma/question-image.svg" alt="" className="size-6" />
         </IconButton>
+        <input
+          ref={seletorDeImagem}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={receberImagem}
+        />
 
         <label className="mt-6 flex h-[46px] shrink-0 cursor-pointer items-center gap-2">
           <Checkbox
@@ -134,6 +167,27 @@ function CardPergunta({
         onChange={(event) => onChange({ label: event.target.value })}
         placeholder="Digite..."
       />
+
+      {pergunta.imageUrl && (
+        <figure className="flex w-[390px] flex-col items-start gap-2">
+          <img
+            src={pergunta.imageUrl}
+            alt="Imagem da pergunta"
+            className="max-h-[390px] w-full rounded-xl object-cover"
+          />
+          <div className="flex items-start gap-6">
+            <AcaoPergunta rotulo="Trocar" icone="question-image" onClick={escolherImagem} tingido />
+            <AcaoPergunta
+              rotulo="Remover"
+              icone="question-trash"
+              onClick={() => onChange({ imageUrl: undefined })}
+              destrutiva
+            />
+          </div>
+        </figure>
+      )}
+
+      {erroImagem && <FieldError message={erroImagem} />}
 
       {/*
         Prévia do campo que o jogador vai preencher: fica desabilitada e sem
@@ -164,12 +218,20 @@ function AcaoPergunta({
   icone,
   onClick,
   destrutiva,
+  tingido,
 }: {
   rotulo: string;
   icone: string;
   onClick?: () => void;
   destrutiva?: boolean;
+  /**
+   * Pinta o ícone com a cor do texto, por máscara. O `pic_2_fill` do arquivo
+   * só existe escuro — é o do botão cinza —, e aqui ele acompanha o azul.
+   */
+  tingido?: boolean;
 }) {
+  const src = `./icons/figma/${icone}.svg`;
+
   return (
     <button
       type="button"
@@ -181,8 +243,20 @@ function AcaoPergunta({
       )}
     >
       {rotulo}
-      <img src={`./icons/figma/${icone}.svg`} alt="" className="size-6" />
+      {tingido ? (
+        <span
+          aria-hidden
+          className="size-6 bg-current"
+          style={{
+            WebkitMaskImage: `url(${src})`,
+            maskImage: `url(${src})`,
+            WebkitMaskSize: '100% 100%',
+            maskSize: '100% 100%',
+          }}
+        />
+      ) : (
+        <img src={src} alt="" className="size-6" />
+      )}
     </button>
   );
 }
-

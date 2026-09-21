@@ -1,4 +1,6 @@
+import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
+import { ComunidadeJogo } from '@/components/Common/ComunidadeJogo';
 import { PageHeading } from '@/components/Common/PageHeading';
 import { Button, EmptyState, ErrorState, IconButton, SkeletonCard, Table, TableHeader, TableRow, Tag } from '@/components/UI';
 import { useGame } from '@/hooks/useGames';
@@ -21,7 +23,9 @@ import {
  * Capa larga com a barra de progresso da campanha, linha de identificação com
  * os três números, abas, os dois botões de ação e a tabela de testes do jogo.
  *
- * As abas seguintes a "Testes ativos" não têm frame no Figma, então aparecem
+ * Duas abas têm tela: "Testes ativos" e "Comunidade". A Comunidade é o mesmo
+ * chat que o tester abre na tela do jogo (`395:2656`) — é por ela que o estúdio
+ * conversa com quem testa. As outras não têm frame no Figma, então aparecem
  * como estão desenhadas mas não navegam — mesmo tratamento dos itens de
  * navegação sem tela.
  */
@@ -34,10 +38,14 @@ const ABAS = [
   'Especificações',
 ];
 
+const ABA_TESTES = 0;
+const ABA_COMUNIDADE = 4;
+
 export function DetalhesJogo() {
   const { gameId } = useParams<{ gameId: string }>();
   const game = useGame(gameId);
   const tests = useTests(gameId);
+  const [aba, setAba] = useState(ABA_TESTES);
 
   if (game.isError) {
     return <ErrorState description="Não conseguimos carregar o jogo." onRetry={() => game.refetch()} />;
@@ -64,19 +72,23 @@ export function DetalhesJogo() {
 
       <Identificacao jogo={jogo} />
 
-      {/* Abas: só a primeira tem conteúdo desenhado */}
       <div className="flex items-end">
-        {ABAS.map((aba, indice) => {
-          const ativa = indice === 0;
+        {ABAS.map((nome, indice) => {
+          const ativa = indice === aba;
+          const temTela = indice === ABA_TESTES || indice === ABA_COMUNIDADE;
 
           return (
-            <span
-              key={aba}
+            <button
+              key={nome}
+              type="button"
+              onClick={temTela ? () => setAba(indice) : undefined}
+              aria-disabled={temTela ? undefined : true}
+              title={temTela ? undefined : 'Ainda não disponível'}
               className={cn(
                 'flex flex-col items-center pt-3',
                 ativa ? 'gap-4' : 'gap-[17px]',
+                !temTela && 'cursor-default',
               )}
-              title={ativa ? undefined : 'Ainda não disponível'}
             >
               <span
                 className={cn(
@@ -84,42 +96,51 @@ export function DetalhesJogo() {
                   ativa ? 'font-bold text-orbit-blue' : 'text-white',
                 )}
               >
-                {aba}
+                {nome}
               </span>
               <span className={cn('w-full', ativa ? 'h-0.5 bg-orbit-blue' : 'h-px bg-white')} />
-            </span>
+            </button>
           );
         })}
         <span className="h-px flex-1 bg-white" />
       </div>
 
-      {/* Ações */}
-      <div className="flex items-start gap-6">
-        <Button variant="flame" asChild>
-          <Link to={`${ROUTES.studio.newTest}?game=${jogo.id}`}>
-            Novo teste
-            {/* O "+" do arquivo é azul; aqui ele acompanha o texto do botão. */}
-            <img src="./icons/figma/plus-branco.svg" alt="" className="size-6" />
-          </Link>
-        </Button>
-
-        <Button variant="nightfall" disabled title="Ainda não disponível">
-          Configurar Orbit Plug-in
-          <span className="relative size-[25.2px]">
-            <img src="./icons/figma/plugin-config.svg" alt="" className="size-full" />
-            <img
-              src="./icons/figma/plugin-config-spark.svg"
-              alt=""
-              className="absolute left-[14.7px] top-[2.38px] h-[11.76px] w-[12.6px]"
-            />
-          </span>
-        </Button>
-      </div>
-
-      {tests.isError ? (
-        <ErrorState description="Não conseguimos carregar os testes." onRetry={() => tests.refetch()} />
+      {aba === ABA_COMUNIDADE ? (
+        <ComunidadeJogo gameId={jogo.id} />
       ) : (
-        <TabelaTestes testes={tests.data ?? []} />
+        <>
+          {/* Ações */}
+          <div className="flex items-start gap-6">
+            <Button variant="flame" asChild>
+              <Link to={`${ROUTES.studio.newTest}?game=${jogo.id}`}>
+                Novo teste
+                {/* O "+" do arquivo é azul; aqui ele acompanha o texto do botão. */}
+                <img src="./icons/figma/plus-branco.svg" alt="" className="size-6" />
+              </Link>
+            </Button>
+
+            <Button variant="nightfall" disabled title="Ainda não disponível">
+              Configurar Orbit Plug-in
+              <span className="relative size-[25.2px]">
+                <img src="./icons/figma/plugin-config.svg" alt="" className="size-full" />
+                <img
+                  src="./icons/figma/plugin-config-spark.svg"
+                  alt=""
+                  className="absolute left-[14.7px] top-[2.38px] h-[11.76px] w-[12.6px]"
+                />
+              </span>
+            </Button>
+          </div>
+
+          {tests.isError ? (
+            <ErrorState
+              description="Não conseguimos carregar os testes."
+              onRetry={() => tests.refetch()}
+            />
+          ) : (
+            <TabelaTestes testes={tests.data ?? []} />
+          )}
+        </>
       )}
     </div>
   );

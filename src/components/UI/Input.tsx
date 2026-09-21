@@ -28,7 +28,8 @@ import { cn } from '@/utils/helpers';
  *   label   telas 16 bold      · prancha 12 bold
  *
  * `surface="light"` atende o único lugar claro do app: a barra de envio do chat
- * da comunidade, onde o texto é escuro.
+ * da comunidade. Lá o texto é escuro, a borda é a #585D68 do frame `395:2656`
+ * e o hover volta a ser o #111827 da prancha, que sobre o claro aparece.
  */
 export type FieldTone = 'default' | 'positive' | 'negative';
 
@@ -37,7 +38,8 @@ const caixaVariants = cva(
   {
     variants: {
       tone: {
-        default: 'border-orbit-border hover:border-white focus-within:border-orbit-blue',
+        // A borda do estado normal depende da superfície: ver `compoundVariants`.
+        default: 'focus-within:border-orbit-blue',
         positive: 'border-orbit-success',
         negative: 'border-orbit-error',
       },
@@ -50,6 +52,10 @@ const caixaVariants = cva(
         false: '',
       },
     },
+    compoundVariants: [
+      { tone: 'default', surface: 'dark', class: 'border-orbit-border hover:border-white' },
+      { tone: 'default', surface: 'light', class: 'border-orbit-faint hover:border-orbit-dark' },
+    ],
     defaultVariants: { tone: 'default', surface: 'dark', desligado: false },
   },
 );

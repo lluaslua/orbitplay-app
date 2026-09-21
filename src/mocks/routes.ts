@@ -9,27 +9,33 @@
  */
 import type {
   ApiError,
+  AuthUser,
   AvailableTest,
   ParticipationStatus,
   PlayerDashboard,
   SessionResult,
   SessionSubmission,
 } from '@/types';
-import { TEST_MODEL_LABELS } from '@/utils/constants';
+import { CHAT_MESSAGE_MAX_LENGTH, TEST_MODEL_LABELS } from '@/utils/constants';
 import { clamp, uid } from '@/utils/helpers';
 import {
   buildPluginReport,
   buildReport,
+  canAccessCommunity,
+  communityIsOpen,
   createGame,
   createTest,
   db,
   findAccount,
+  findChannel,
   findUserById,
+  getCommunity,
   getGame,
   getParticipationByTest,
   getPlayerProfile,
   getSession,
   getStudioDashboard,
+  listChannelMessages,
   listPlayerGameTests,
   getTest,
   issueToken,
@@ -38,6 +44,8 @@ import {
   listParticipations,
   listSessions,
   listTests,
+  postChannelMessage,
+  toggleReaction,
   upsertParticipation,
 } from './db';
 
@@ -130,6 +138,60 @@ function scoreFeedback(submission: SessionSubmission): number {
   return Number(clamp(base + textBonus + bugBonus + completenessBonus, 1, 5).toFixed(1));
 }
 
+/**
+ * Quem fez a requisição, lido do token que o interceptor do axios anexa.
+ *
+ * O token do mock tem o formato do JWT (`issueToken`), então o `sub` do payload
+ * é o id da conta. O MSW entrega os headers em minúsculas e o adapter do axios
+ * na grafia original — por isso a busca ignora a caixa.
+ */
+function requester(headers: Record<string, string>): AuthUser | undefined {
+  const autorizacao =
+    Object.entries(headers).find(([nome]) => nome.toLowerCase() === 'authorization')?.[1] ?? '';
+  const payload = String(autorizacao).replace(/^Bearer\s+/i, '').split('.')[1];
+  if (!payload) return undefined;
+
+  try {
+    return findUserById(JSON.parse(atob(payload)).sub);
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Porta das rotas do chat: devolve quem está pedindo ou a resposta de erro. Os
+ * dois `code` de acesso viram aviso na tela, não falha (`CommunityAccessError`).
+ */
+function communityGuard(
+  headers: Record<string, string>,
+  gameId: string,
+): { user: AuthUser } | { error: MockResult } {
+  const user = requester(headers);
+  if (!user) return { error: fail(401, { message: 'Sua sessão expirou. Entre de novo.' }) };
+
+  if (!getGame(gameId)) return { error: fail(404, { message: 'Jogo não encontrado.' }) };
+
+  if (!communityIsOpen(gameId)) {
+    return {
+      error: fail(404, {
+        message: 'A comunidade abre quando o jogo recebe a primeira build.',
+        code: 'COMMUNITY_NOT_OPEN',
+      }),
+    };
+  }
+
+  if (!canAccessCommunity(user, gameId)) {
+    return {
+      error: fail(403, {
+        message: 'Só o estúdio do jogo e quem já participou de um teste dele entram no chat.',
+        code: 'COMMUNITY_RESTRICTED',
+      }),
+    };
+  }
+
+  return { user };
+}
+
 export const routes: MockRoute[] = [
   // -------------------------------------------------------------------------
   // Auth
@@ -208,6 +270,64 @@ export const routes: MockRoute[] = [
   },
 
   // -------------------------------------------------------------------------
+  // Comunidade do jogo — o mesmo chat para o estúdio e para os testers
+  // -------------------------------------------------------------------------
+  {
+    method: 'GET',
+    path: '/games/:gameId/community',
+    resolve: ({ params, headers }) => {
+      const acesso = communityGuard(headers, params.gameId);
+      if ('error' in acesso) return acesso.error;
+
+      return ok(getCommunity(params.gameId, acesso.user.id));
+    },
+  },
+  {
+    method: 'GET',
+    path: '/games/:gameId/community/channels/:channelId/messages',
+    resolve: ({ params, headers }) => {
+      const acesso = communityGuard(headers, params.gameId);
+      if ('error' in acesso) return acesso.error;
+      if (!findChannel(params.channelId)) return fail(404, { message: 'Canal não encontrado.' });
+
+      return ok(listChannelMessages(params.gameId, params.channelId, acesso.user.id));
+    },
+  },
+  {
+    method: 'POST',
+    path: '/games/:gameId/community/channels/:channelId/messages',
+    resolve: ({ params, headers, body }) => {
+      const acesso = communityGuard(headers, params.gameId);
+      if ('error' in acesso) return acesso.error;
+      if (!findChannel(params.channelId)) return fail(404, { message: 'Canal não encontrado.' });
+
+      const texto = String(body?.text ?? '').trim();
+      if (!texto) {
+        return fail(422, { message: 'Escreva uma mensagem antes de enviar.', code: 'EMPTY_MESSAGE' });
+      }
+      if (texto.length > CHAT_MESSAGE_MAX_LENGTH) {
+        return fail(422, {
+          message: `A mensagem passa de ${CHAT_MESSAGE_MAX_LENGTH} caracteres.`,
+          code: 'MESSAGE_TOO_LONG',
+        });
+      }
+
+      return created(postChannelMessage(params.gameId, params.channelId, acesso.user.id, texto));
+    },
+  },
+  {
+    method: 'POST',
+    path: '/games/:gameId/community/messages/:messageId/reaction',
+    resolve: ({ params, headers }) => {
+      const acesso = communityGuard(headers, params.gameId);
+      if ('error' in acesso) return acesso.error;
+
+      const mensagem = toggleReaction(params.gameId, params.messageId, acesso.user.id);
+      return mensagem ? ok(mensagem) : fail(404, { message: 'Mensagem não encontrada.' });
+    },
+  },
+
+  // -------------------------------------------------------------------------
   // Estudio - testes, dashboard e relatorios
   // -------------------------------------------------------------------------
   {
@@ -280,13 +400,7 @@ export const routes: MockRoute[] = [
   },
   {
     method: 'GET',
-    // O chat é o mesmo em qualquer jogo: o Figma só desenha um.
-    path: '/player/games/:gameId/community',
-    resolve: () => ok(db.gameCommunity),
-  },
-  {
-    method: 'GET',
-    // Conquistas e histórico também são os mesmos em qualquer jogo no arquivo.
+    // Conquistas e histórico são os mesmos em qualquer jogo: o arquivo só desenha um de cada.
     path: '/player/games/:gameId/achievements',
     resolve: () => ok(db.gameAchievements),
   },

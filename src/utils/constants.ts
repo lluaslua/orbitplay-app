@@ -294,6 +294,27 @@ export const ARCHETYPES: { id: ArchetypeId; name: string; description: string }[
   { id: 'KILLER', name: 'Assassino', description: 'Competitivo e orientado à performance. Detecta problemas de balanceamento e frustração em desafios e PvP.' },
 ];
 
+/**
+ * Ícones de 48 dos cards de "Tipo de jogador" (Figma `322:2310`) e de
+ * "Arquétipos" (`322:2450`), exportados do arquivo para
+ * `public/icons/figma/publico/`. O "Todos" é o mesmo desenho nas duas fileiras.
+ */
+export const PLAYER_TYPE_ICONS: Record<PlayerTypeId, string> = {
+  ALL: 'publico/todos',
+  CASUAL: 'publico/casual',
+  EXPERIENT: 'publico/experiente',
+  TRAINED: 'publico/tester-treinado',
+  QA: 'publico/qa',
+};
+
+export const ARCHETYPE_ICONS: Record<ArchetypeId, string> = {
+  ALL: 'publico/todos',
+  CONQUEROR: 'publico/conquistador',
+  EXPLORER: 'publico/explorador',
+  SOCIALIZER: 'publico/socializador',
+  KILLER: 'publico/assassino',
+};
+
 /** Adicional do "Impulsionar teste!", por teste. */
 export const BOOST_CENTS = 15;
 
@@ -382,3 +403,6 @@ export const TEST_STEPS = [
   { id: 3, title: 'Build', description: 'Envie o executável' },
   { id: 4, title: 'Orçamento', description: 'Público, verba e duração' },
 ] as const;
+
+/** Tamanho máximo de uma mensagem no chat da comunidade — o campo e a API usam o mesmo. */
+export const CHAT_MESSAGE_MAX_LENGTH = 1000;
