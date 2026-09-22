@@ -20,7 +20,8 @@ let mainWindow: BrowserWindow | null = null;
  * A janela tem duas formas, e é o Figma que manda nisso.
  *
  * No login (`181:8146`) o app é um cartão fixo de 926×619 com cantos de 24 e
- * **sem barra de título** — nem os botões de janela. Depois de entrar, os frames
+ * **sem barra de título** — só minimizar e fechar, no canto do próprio cartão
+ * (`1148:3357`); maximizar não faz sentido numa janela travada. Depois de entrar, os frames
  * passam a desenhar a barra `OrbitPlay v1.0.0.2 | View | Help` com minimizar,
  * maximizar e fechar, e a janela vira o app inteiro, redimensionável.
  *
