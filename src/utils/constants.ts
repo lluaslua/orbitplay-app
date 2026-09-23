@@ -33,6 +33,7 @@ export const ROUTES = {
     home: '/studio',
     games: '/studio/games',
     game: (id: string) => `/studio/games/${id}`,
+    newGame: '/studio/games/new',
     newTest: '/studio/tests/new',
     report: (testId: string) => `/studio/reports/${testId}`,
     session: (testId: string, sessionId: string) =>
@@ -202,6 +203,102 @@ export const GENRES = [
 export const PLATFORMS = ['PC', 'MAC', 'LINUX', 'ANDROID', 'IOS', 'WEB', 'CONSOLE'] as const;
 
 export const REGIONS = ['Brasil', 'América Latina', 'América do Norte', 'Europa', 'Ásia'] as const;
+
+/** Etapa 1 de "Novo jogo" — opções dos seletores simples. */
+export const GAME_MODES = [
+  'Single-player',
+  'Multiplayer local',
+  'Multiplayer online',
+  'Cooperativo',
+  'Competitivo',
+] as const;
+
+export const GAME_ENGINES = [
+  'Unity',
+  'Unreal Engine',
+  'Godot',
+  'GameMaker',
+  'Construct',
+  'Engine própria',
+  'Outra',
+] as const;
+
+export const GAME_DEV_STAGES = ['Protótipo', 'Pré-alfa', 'Alfa', 'Beta', 'Lançado'] as const;
+
+export const GAME_AGE_RATINGS = ['Livre', '10 anos', '12 anos', '14 anos', '16 anos', '18 anos'] as const;
+
+export const GAME_LANGUAGES = [
+  'Português',
+  'Inglês',
+  'Espanhol',
+  'Francês',
+  'Alemão',
+  'Japonês',
+] as const;
+
+/** Rótulos do stepper de "Novo jogo" — Informações, Mídias, Permissões. */
+export const NEW_GAME_STEPS = ['Informações', 'Mídias', 'Permissões'] as const;
+
+/** As 4 colunas de permissão da tabela da etapa 3 (Figma), nesta ordem. */
+export type PermissionKey = 'editPermissions' | 'editInfo' | 'editTests' | 'viewReports';
+
+export const PERMISSION_COLUMNS: { key: PermissionKey; label: string }[] = [
+  { key: 'editPermissions', label: 'Editar Permissões/excluir projeto' },
+  { key: 'editInfo', label: 'Editar informações gerais' },
+  { key: 'editTests', label: 'Criar/editar testes' },
+  { key: 'viewReports', label: 'Acessar relatórios' },
+];
+
+export interface PermissionRow {
+  id: string;
+  kind: 'group' | 'member';
+  name: string;
+  /** "2 perfis" nos grupos. */
+  meta?: string;
+  permissions: Record<PermissionKey, boolean>;
+}
+
+/**
+ * Linhas com que a etapa 3 de "Novo jogo" já abre, tons exatos do print. Os
+ * grupos e membros disponíveis para adicionar vêm de `useStudioTeam`
+ * (`GET /studio/team`, mockado em `src/mocks/db.ts`) — "Analitics" é grafado
+ * assim no arquivo do Figma, não "Analytics".
+ */
+export const NEW_GAME_DEFAULT_PERMISSIONS: PermissionRow[] = [
+  {
+    id: 'grp-diretores',
+    kind: 'group',
+    name: 'Diretores',
+    meta: '2 perfis',
+    permissions: { editPermissions: true, editInfo: true, editTests: true, viewReports: true },
+  },
+  {
+    id: 'grp-qa',
+    kind: 'group',
+    name: 'QA',
+    meta: '25 perfis',
+    permissions: { editPermissions: false, editInfo: true, editTests: true, viewReports: true },
+  },
+  {
+    id: 'grp-analitics',
+    kind: 'group',
+    name: 'Analitics',
+    meta: '12 perfis',
+    permissions: { editPermissions: false, editInfo: false, editTests: false, viewReports: true },
+  },
+  {
+    id: 'mem-hideo',
+    kind: 'member',
+    name: 'Hideo Kojima',
+    permissions: { editPermissions: true, editInfo: true, editTests: false, viewReports: false },
+  },
+  {
+    id: 'mem-guilherme',
+    kind: 'member',
+    name: 'Guilherme Hoffmann',
+    permissions: { editPermissions: false, editInfo: false, editTests: false, viewReports: true },
+  },
+];
 
 /** Taxa da plataforma aplicada no orçamento (Etapa 4). */
 export const PLATFORM_FEE_RATE = 0.15;

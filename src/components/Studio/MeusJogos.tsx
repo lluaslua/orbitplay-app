@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom';
 import { PageHeading } from '@/components/Common/PageHeading';
 import { GameCard } from '@/components/Common/GameCard';
 import { ErrorState, SkeletonCard } from '@/components/UI';
@@ -54,15 +55,14 @@ export function MeusJogos() {
  * Card "Novo jogo!" — Figma `312:6727`.
  *
  * Mesma moldura dos cards de jogo (borda `#0059A7`, cantos 24 só no topo-esquerdo
- * e na base-direita). O link não navega: o Figma não tem tela de cadastro de
- * jogo, e a regra aqui é não inventar destino — igual aos itens de navegação
- * que aparecem sem tela correspondente.
+ * e na base-direita). Leva à tela de cadastro (`/studio/games/new`), cuja etapa
+ * "Informações" segue o frame de cadastro de jogo do Figma.
  */
 function NovoJogoCard() {
   return (
-    <div
-      className="flex h-[430px] w-full flex-col items-center justify-center gap-6 overflow-hidden rounded-br-3xl rounded-tl-3xl border border-[#0059A7] px-4 py-2"
-      title="Ainda não disponível"
+    <Link
+      to={ROUTES.studio.newGame}
+      className="flex h-[430px] w-full flex-col items-center justify-center gap-6 overflow-hidden rounded-br-3xl rounded-tl-3xl border border-[#0059A7] px-4 py-2 transition-colors hover:bg-white/5"
     >
       <div className="flex flex-col items-center gap-2 text-center">
         <img src="./icons/figma/novo-jogo.svg" alt="" className="size-12" />
@@ -74,6 +74,6 @@ function NovoJogoCard() {
         Adicionar
         <img src="./icons/figma/plus.svg" alt="" className="size-6" />
       </span>
-    </div>
+    </Link>
   );
 }

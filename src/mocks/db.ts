@@ -34,6 +34,7 @@ import type {
   SessionOutcome,
   SessionDetail,
   StudioDashboard,
+  StudioTeam,
   TestReport,
   UserRole,
 } from '@/types';
@@ -228,6 +229,26 @@ export function createGame(input: Partial<Game>): Game {
   };
   db.games.unshift(game);
   return game;
+}
+
+// ---------------------------------------------------------------------------
+// Equipe do estúdio — grupos e membros da tela "Responsáveis e permissões"
+// ---------------------------------------------------------------------------
+
+const studioTeam: StudioTeam = {
+  groups: [
+    { id: 'grp-diretores', name: 'Diretores', memberCount: 2 },
+    { id: 'grp-qa', name: 'QA', memberCount: 25 },
+    { id: 'grp-analitics', name: 'Analitics', memberCount: 12 },
+  ],
+  members: [
+    { id: 'mem-hideo', name: 'Hideo Kojima' },
+    { id: 'mem-guilherme', name: 'Guilherme Hoffmann' },
+  ],
+};
+
+export function listStudioTeam(): StudioTeam {
+  return studioTeam;
 }
 
 // ---------------------------------------------------------------------------

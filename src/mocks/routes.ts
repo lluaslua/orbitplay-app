@@ -43,6 +43,7 @@ import {
   listGames,
   listParticipations,
   listSessions,
+  listStudioTeam,
   listTests,
   postChannelMessage,
   toggleReaction,
@@ -267,6 +268,11 @@ export const routes: MockRoute[] = [
       const game = getGame(params.id);
       return game ? ok(game) : fail(404, { message: 'Jogo não encontrado.' });
     },
+  },
+  {
+    method: 'GET',
+    path: '/studio/team',
+    resolve: () => ok(listStudioTeam()),
   },
 
   // -------------------------------------------------------------------------
