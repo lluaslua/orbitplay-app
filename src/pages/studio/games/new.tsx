@@ -5,7 +5,7 @@ import { ConfirmacaoNovoJogo } from '@/components/Studio/GameCreation/Confirmaca
 import { Step1Informacoes } from '@/components/Studio/GameCreation/Step1Informacoes';
 import { Step2Midias } from '@/components/Studio/GameCreation/Step2Midias';
 import { Step3Permissoes } from '@/components/Studio/GameCreation/Step3Permissoes';
-import { useNovoJogoDraft } from '@/components/Studio/GameCreation/useNovoJogoDraft';
+import { isNovoJogoStepValid, useNovoJogoDraft } from '@/components/Studio/GameCreation/useNovoJogoDraft';
 import { Button, Card, Stepper } from '@/components/UI';
 import { useCreateGame } from '@/hooks/useGames';
 import type { Genre, Platform } from '@/types';
@@ -41,6 +41,7 @@ export default function StudioNewGamePage() {
   }
 
   const criado = createGame.data;
+  const podeAvancar = isNovoJogoStepValid(currentStep, draft);
 
   return (
     <div className="flex flex-col gap-6">
@@ -95,11 +96,20 @@ export default function StudioNewGamePage() {
               </button>
 
               {currentStep < ULTIMA_ETAPA ? (
-                <Button variant="nightfall" onClick={() => irPara(currentStep + 1)}>
+                <Button
+                  variant="nightfall"
+                  onClick={() => irPara(currentStep + 1)}
+                  disabled={!podeAvancar}
+                >
                   Próximo
                 </Button>
               ) : (
-                <Button variant="nightfall" onClick={finalizar} loading={createGame.isPending}>
+                <Button
+                  variant="nightfall"
+                  onClick={finalizar}
+                  loading={createGame.isPending}
+                  disabled={!podeAvancar}
+                >
                   Finalizar
                 </Button>
               )}

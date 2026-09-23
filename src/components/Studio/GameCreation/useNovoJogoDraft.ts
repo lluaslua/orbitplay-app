@@ -2,9 +2,8 @@ import { useState } from 'react';
 import { NEW_GAME_DEFAULT_PERMISSIONS, type PermissionRow } from '@/utils/constants';
 
 /**
- * Rascunho de "Novo jogo" — só a etapa 1 (Informações) é funcional por
- * enquanto; Mídias e Permissões ainda não têm design. Vive só em memória:
- * sem tela de continuação depois dela, persistir em disco não tem consumidor.
+ * Rascunho de "Novo jogo" — vive só em memória: sem tela de continuação
+ * depois do fluxo, persistir em disco não tem consumidor.
  */
 export interface NovoJogoDraft {
   name: string;
@@ -51,4 +50,30 @@ export function useNovoJogoDraft() {
   }
 
   return { draft, update };
+}
+
+/**
+ * Valida os campos marcados com `*` em cada etapa — só libera o "Próximo" /
+ * "Finalizar" quando eles estão preenchidos.
+ */
+export function isNovoJogoStepValid(step: number, draft: NovoJogoDraft): boolean {
+  switch (step) {
+    case 1:
+      return (
+        draft.name.trim().length > 0 &&
+        draft.tagline.trim().length > 0 &&
+        draft.shortDescription.trim().length > 0 &&
+        draft.genres.length > 0 &&
+        draft.platform.trim().length > 0 &&
+        draft.gameMode.trim().length > 0 &&
+        draft.devStage.trim().length > 0 &&
+        draft.ageRating.trim().length > 0
+      );
+    case 2:
+      return !!draft.coverUrl && !!draft.logoUrl && !!draft.iconUrl;
+    case 3:
+      return true;
+    default:
+      return false;
+  }
 }
