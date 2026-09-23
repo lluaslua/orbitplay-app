@@ -64,3 +64,21 @@ export interface AuthSession {
   expiresAt: string;
 }
 
+/** Grupo do estúdio na tabela "Responsáveis e permissões" de Novo jogo. */
+export interface StudioTeamGroup {
+  id: string;
+  name: string;
+  memberCount: number;
+}
+
+export interface StudioTeamMember {
+  id: string;
+  name: string;
+  avatarUrl?: string;
+}
+
+export interface StudioTeam {
+  groups: StudioTeamGroup[];
+  members: StudioTeamMember[];
+}
+

@@ -1,6 +1,6 @@
 import { useRef, useState, type ChangeEvent } from 'react';
-import { Eye, Plus } from 'lucide-react';
-import { Checkbox, FieldError, IconButton, Input, SelectField } from '@/components/UI';
+import { Eye, Plus, Trash2 } from 'lucide-react';
+import { Checkbox, FieldError, IconButton, Input, Radio, SelectField } from '@/components/UI';
 import { useTestStore } from '@/stores/testStore';
 import type { FormQuestion, QuestionType } from '@/types';
 import { QUESTION_TYPES } from '@/utils/constants';
@@ -92,7 +92,6 @@ function CardPergunta({
   onDuplicar: () => void;
   onDeletar: () => void;
 }) {
-  const tipo = QUESTION_TYPES.find((item) => item.id === pergunta.type);
   const seletorDeImagem = useRef<HTMLInputElement>(null);
   const [erroImagem, setErroImagem] = useState<string | null>(null);
 
@@ -121,7 +120,14 @@ function CardPergunta({
           required
           className="w-[390px]"
           value={pergunta.type}
-          onChange={(event) => onChange({ type: event.target.value as QuestionType })}
+          onChange={(event) => {
+            const type = event.target.value as QuestionType;
+            const precisaOpcoes = type === 'MULTIPLE_CHOICE' || type === 'CHECKBOXES';
+            onChange({
+              type,
+              options: precisaOpcoes && !pergunta.options?.length ? ['', ''] : pergunta.options,
+            });
+          }}
         >
           {QUESTION_TYPES.map((item) => (
             <option key={item.id} value={item.id} className="bg-orbit-bg">
@@ -189,17 +195,17 @@ function CardPergunta({
 
       {erroImagem && <FieldError message={erroImagem} />}
 
-      {/*
-        Prévia do campo que o jogador vai preencher: fica desabilitada e sem
-        preenchimento, como no arquivo — é ilustração, não entrada.
-      */}
-      <Input
-        label={`Campo da ${(tipo?.label ?? '').toLowerCase()}`}
-        className="w-[390px] [&_span]:bg-transparent"
-        placeholder="Digite..."
-        readOnly
-        aria-label="Prévia do campo que o jogador vai preencher"
-      />
+      {(pergunta.type === 'MULTIPLE_CHOICE' || pergunta.type === 'CHECKBOXES') && (
+        <OpcoesEditor
+          opcoes={pergunta.options ?? []}
+          modo={pergunta.type === 'MULTIPLE_CHOICE' ? 'radio' : 'checkbox'}
+          onChange={(options) => onChange({ options })}
+        />
+      )}
+
+      {pergunta.type === 'LINEAR_SCALE' && (
+        <EscalaLinearEditor pergunta={pergunta} onChange={onChange} />
+      )}
 
       <hr className="w-full border-orbit-border" />
 
@@ -210,6 +216,126 @@ function CardPergunta({
         <AcaoPergunta rotulo="Deletar" icone="question-trash" onClick={onDeletar} destrutiva />
       </div>
     </section>
+  );
+}
+
+/**
+ * Lista de opções de "Escolha" (radio) e "Múltipla Escolha" (checkbox) —
+ * mesmo círculo/quadrado do design system, só ilustrativo aqui: quem edita é
+ * o campo de texto ao lado, não o próprio indicador.
+ */
+function OpcoesEditor({
+  opcoes,
+  modo,
+  onChange,
+}: {
+  opcoes: string[];
+  modo: 'radio' | 'checkbox';
+  onChange: (opcoes: string[]) => void;
+}) {
+  function atualizar(indice: number, valor: string) {
+    onChange(opcoes.map((opcao, i) => (i === indice ? valor : opcao)));
+  }
+
+  function remover(indice: number) {
+    onChange(opcoes.filter((_, i) => i !== indice));
+  }
+
+  return (
+    <div className="flex flex-col gap-3">
+      {opcoes.map((opcao, indice) => (
+        <div key={indice} className="flex items-center gap-3">
+          {modo === 'radio' ? <Radio disabled /> : <Checkbox disabled />}
+          <Input
+            className="w-[390px]"
+            value={opcao}
+            onChange={(event) => atualizar(indice, event.target.value)}
+            placeholder="Digite..."
+            aria-label={`Opção ${indice + 1}`}
+          />
+          <button
+            type="button"
+            onClick={() => remover(indice)}
+            aria-label={`Remover opção ${indice + 1}`}
+            className="text-orbit-error-l orbit-focus-ring"
+          >
+            <Trash2 className="size-5" />
+          </button>
+        </div>
+      ))}
+
+      <button
+        type="button"
+        onClick={() => onChange([...opcoes, ''])}
+        className="flex w-fit items-center gap-1 text-button text-orbit-blue hover:underline"
+      >
+        Adicionar opção
+        <Plus className="size-5" />
+      </button>
+    </div>
+  );
+}
+
+/** Faixa de "Escala linear": intervalo numérico + rótulo das duas pontas. */
+const ESCALA_MIN_OPCOES = [0, 1];
+const ESCALA_MAX_OPCOES = [2, 3, 4, 5, 6, 7, 8, 9, 10];
+
+function EscalaLinearEditor({
+  pergunta,
+  onChange,
+}: {
+  pergunta: FormQuestion;
+  onChange: (patch: Partial<FormQuestion>) => void;
+}) {
+  return (
+    <div className="flex flex-col gap-6">
+      <div className="flex items-center gap-3">
+        <SelectField
+          className="w-[100px]"
+          aria-label="Valor inicial da escala"
+          value={pergunta.scaleMin ?? 1}
+          onChange={(event) => onChange({ scaleMin: Number(event.target.value) })}
+        >
+          {ESCALA_MIN_OPCOES.map((numero) => (
+            <option key={numero} value={numero} className="bg-orbit-bg">
+              {numero}
+            </option>
+          ))}
+        </SelectField>
+
+        <span className="text-body text-white">a</span>
+
+        <SelectField
+          className="w-[100px]"
+          aria-label="Valor final da escala"
+          value={pergunta.scaleMax ?? 5}
+          onChange={(event) => onChange({ scaleMax: Number(event.target.value) })}
+        >
+          {ESCALA_MAX_OPCOES.map((numero) => (
+            <option key={numero} value={numero} className="bg-orbit-bg">
+              {numero}
+            </option>
+          ))}
+        </SelectField>
+      </div>
+
+      <div className="flex items-center gap-6">
+        <Input
+          label="Primeiro marcador"
+          className="w-[390px]"
+          placeholder="Digite..."
+          value={pergunta.scaleMinLabel ?? ''}
+          onChange={(event) => onChange({ scaleMinLabel: event.target.value })}
+        />
+        <Input
+          label="Último marcador"
+          className="w-[390px]"
+          placeholder="Digite..."
+          value={pergunta.scaleMaxLabel ?? ''}
+          onChange={(event) => onChange({ scaleMaxLabel: event.target.value })}
+        />
+      </div>
+    </div>
   );
 }
 

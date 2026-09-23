@@ -13,6 +13,7 @@ const LoginPage = lazy(() => import('@/pages/login'));
 
 const StudioHomePage = lazy(() => import('@/pages/studio/index'));
 const StudioGamesPage = lazy(() => import('@/pages/studio/games'));
+const StudioNewGamePage = lazy(() => import('@/pages/studio/games/new'));
 const StudioGameDetailPage = lazy(() => import('@/pages/studio/[gameId]'));
 const StudioNewTestPage = lazy(() => import('@/pages/studio/tests/new'));
 const StudioReportPage = lazy(() => import('@/pages/studio/reports/[testId]'));
@@ -86,6 +87,7 @@ export default function App() {
           <Route element={<MainLayout allow={['STUDIO']} />}>
             <Route path="/studio" element={<StudioHomePage />} />
             <Route path="/studio/games" element={<StudioGamesPage />} />
+            <Route path="/studio/games/new" element={<StudioNewGamePage />} />
             <Route path="/studio/games/:gameId" element={<StudioGameDetailPage />} />
             <Route path="/studio/tests/new" element={<StudioNewTestPage />} />
             <Route path="/studio/reports/:testId" element={<StudioReportPage />} />
