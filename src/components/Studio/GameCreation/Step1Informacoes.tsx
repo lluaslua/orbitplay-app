@@ -1,4 +1,4 @@
-import { Input, SelectField } from '@/components/UI';
+import { Input } from '@/components/UI';
 import {
   GAME_AGE_RATINGS,
   GAME_DEV_STAGES,
@@ -6,8 +6,9 @@ import {
   GAME_LANGUAGES,
   GAME_MODES,
   GENRES,
-  PLATFORMS,
+  NEW_GAME_PLATFORMS,
 } from '@/utils/constants';
+import { DropdownOpcoes } from './DropdownOpcoes';
 import { GenreMultiSelect } from './GenreMultiSelect';
 import type { NovoJogoDraft } from './useNovoJogoDraft';
 
@@ -76,90 +77,56 @@ export function Step1Informacoes({
       />
 
       <div className="grid grid-cols-3 gap-6">
-        <SelectField
+        <DropdownOpcoes
           label="Plataformas"
           required
-          value={draft.platform}
-          onChange={(event) => onChange({ platform: event.target.value })}
-        >
-          <option value="" className="bg-orbit-bg">Selecione...</option>
-          {PLATFORMS.map((item) => (
-            <option key={item} value={item} className="bg-orbit-bg">
-              {item}
-            </option>
-          ))}
-        </SelectField>
-
-        <SelectField
+          multiplo
+          opcoes={NEW_GAME_PLATFORMS}
+          valor={draft.platforms}
+          onChange={(platforms) => onChange({ platforms })}
+        />
+        <DropdownOpcoes
           label="Modo de jogo"
           required
-          value={draft.gameMode}
-          onChange={(event) => onChange({ gameMode: event.target.value })}
-        >
-          <option value="" className="bg-orbit-bg">Selecione...</option>
-          {GAME_MODES.map((item) => (
-            <option key={item} value={item} className="bg-orbit-bg">
-              {item}
-            </option>
-          ))}
-        </SelectField>
-
-        <SelectField
+          opcoes={comoOpcoes(GAME_MODES)}
+          valor={draft.gameMode}
+          onChange={(gameMode) => onChange({ gameMode })}
+        />
+        <DropdownOpcoes
           label="Engine"
-          value={draft.engine}
-          onChange={(event) => onChange({ engine: event.target.value })}
-        >
-          <option value="" className="bg-orbit-bg">Selecione...</option>
-          {GAME_ENGINES.map((item) => (
-            <option key={item} value={item} className="bg-orbit-bg">
-              {item}
-            </option>
-          ))}
-        </SelectField>
+          opcoes={comoOpcoes(GAME_ENGINES)}
+          valor={draft.engine}
+          onChange={(engine) => onChange({ engine })}
+        />
       </div>
 
       <div className="grid grid-cols-3 gap-6">
-        <SelectField
+        <DropdownOpcoes
           label="Estágio de desenvolvimento"
           required
-          value={draft.devStage}
-          onChange={(event) => onChange({ devStage: event.target.value })}
-        >
-          <option value="" className="bg-orbit-bg">Selecione...</option>
-          {GAME_DEV_STAGES.map((item) => (
-            <option key={item} value={item} className="bg-orbit-bg">
-              {item}
-            </option>
-          ))}
-        </SelectField>
-
-        <SelectField
+          opcoes={comoOpcoes(GAME_DEV_STAGES)}
+          valor={draft.devStage}
+          onChange={(devStage) => onChange({ devStage })}
+        />
+        <DropdownOpcoes
           label="Classificação indicativa"
           required
-          value={draft.ageRating}
-          onChange={(event) => onChange({ ageRating: event.target.value })}
-        >
-          <option value="" className="bg-orbit-bg">Selecione...</option>
-          {GAME_AGE_RATINGS.map((item) => (
-            <option key={item} value={item} className="bg-orbit-bg">
-              {item}
-            </option>
-          ))}
-        </SelectField>
-
-        <SelectField
+          opcoes={comoOpcoes(GAME_AGE_RATINGS)}
+          valor={draft.ageRating}
+          onChange={(ageRating) => onChange({ ageRating })}
+        />
+        <DropdownOpcoes
           label="Idiomas disponíveis"
-          value={draft.language}
-          onChange={(event) => onChange({ language: event.target.value })}
-        >
-          <option value="" className="bg-orbit-bg">Selecione...</option>
-          {GAME_LANGUAGES.map((item) => (
-            <option key={item} value={item} className="bg-orbit-bg">
-              {item}
-            </option>
-          ))}
-        </SelectField>
+          multiplo
+          opcoes={GAME_LANGUAGES}
+          valor={draft.languages}
+          onChange={(languages) => onChange({ languages })}
+        />
       </div>
     </div>
   );
+}
+
+function comoOpcoes(lista: readonly string[]) {
+  return lista.map((item) => ({ valor: item, rotulo: item }));
 }

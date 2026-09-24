@@ -11,12 +11,12 @@ export interface NovoJogoDraft {
   shortDescription: string;
   genres: string[];
   subGenres: string[];
-  platform: string;
+  platforms: string[];
   gameMode: string;
   engine: string;
   devStage: string;
   ageRating: string;
-  language: string;
+  languages: string[];
   /** Etapa 2 — data URLs (o MVP não tem upload real, igual ao resto do app). */
   coverUrl?: string;
   logoUrl?: string;
@@ -32,12 +32,12 @@ const DRAFT_INICIAL: NovoJogoDraft = {
   shortDescription: '',
   genres: [],
   subGenres: [],
-  platform: '',
+  platforms: [],
   gameMode: '',
   engine: '',
   devStage: '',
   ageRating: '',
-  language: '',
+  languages: [],
   trailerUrl: '',
   permissions: NEW_GAME_DEFAULT_PERMISSIONS,
 };
@@ -64,7 +64,7 @@ export function isNovoJogoStepValid(step: number, draft: NovoJogoDraft): boolean
         draft.tagline.trim().length > 0 &&
         draft.shortDescription.trim().length > 0 &&
         draft.genres.length > 0 &&
-        draft.platform.trim().length > 0 &&
+        draft.platforms.length > 0 &&
         draft.gameMode.trim().length > 0 &&
         draft.devStage.trim().length > 0 &&
         draft.ageRating.trim().length > 0
