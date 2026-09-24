@@ -36,7 +36,7 @@ export default function StudioNewGamePage() {
       shortDescription: draft.shortDescription,
       bannerUrl: draft.coverUrl,
       genres: draft.genres as Genre[],
-      platforms: (draft.platform ? [draft.platform] : []) as Platform[],
+      platforms: draft.platforms as Platform[],
     });
   }
 

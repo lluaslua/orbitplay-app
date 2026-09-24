@@ -1,4 +1,4 @@
-import type { GameStatus, TestModel, TestStatus, UserRole, UserStatus } from '@/types';
+import type { GameStatus, Platform, TestModel, TestStatus, UserRole, UserStatus } from '@/types';
 import type { ParticipationStatus, RewardStatus } from '@/types/player';
 import type {
   ArchetypeId,
@@ -204,36 +204,40 @@ export const PLATFORMS = ['PC', 'MAC', 'LINUX', 'ANDROID', 'IOS', 'WEB', 'CONSOL
 
 export const REGIONS = ['Brasil', 'América Latina', 'América do Norte', 'Europa', 'Ásia'] as const;
 
-/** Etapa 1 de "Novo jogo" — opções dos seletores simples. */
-export const GAME_MODES = [
-  'Single-player',
-  'Multiplayer local',
-  'Multiplayer online',
-  'Cooperativo',
-  'Competitivo',
+/**
+ * Etapa 1 de "Novo jogo" — opções dos frames `Dropdown` abaixo do fluxo no
+ * Figma. Plataformas guardam o `Platform` do contrato e mostram o rótulo do
+ * arquivo; idiomas levam a bandeira (`Flag`).
+ */
+export const NEW_GAME_PLATFORMS = [
+  { valor: 'PC', rotulo: 'Windows' },
+  { valor: 'ANDROID', rotulo: 'Android' },
+  { valor: 'IOS', rotulo: 'iOS' },
+  { valor: 'WEB', rotulo: 'Web' },
+] as const satisfies readonly { valor: Platform; rotulo: string }[];
+
+export const GAME_MODES = ['Single Player', 'Multiplayer', 'PvP', 'PvE', 'Co-op'] as const;
+
+export const GAME_ENGINES = ['Unity', 'Unreal', 'Godot', 'Proprietária', 'Outra'] as const;
+
+/** A nota ao lado do frame inclui "Lançado", que o dropdown desenhado corta. */
+export const GAME_DEV_STAGES = [
+  'Conceito',
+  'Protótipo',
+  'Alpha',
+  'Beta',
+  'Early Access',
+  'Lançado',
 ] as const;
 
-export const GAME_ENGINES = [
-  'Unity',
-  'Unreal Engine',
-  'Godot',
-  'GameMaker',
-  'Construct',
-  'Engine própria',
-  'Outra',
-] as const;
-
-export const GAME_DEV_STAGES = ['Protótipo', 'Pré-alfa', 'Alfa', 'Beta', 'Lançado'] as const;
-
-export const GAME_AGE_RATINGS = ['Livre', '10 anos', '12 anos', '14 anos', '16 anos', '18 anos'] as const;
+export const GAME_AGE_RATINGS = ['Livre (L)', '12 Anos', '14 Anos', '16 Anos', '18 Anos'] as const;
 
 export const GAME_LANGUAGES = [
-  'Português',
-  'Inglês',
-  'Espanhol',
-  'Francês',
-  'Alemão',
-  'Japonês',
+  { valor: 'Português', rotulo: 'Português', icone: './icons/figma/bandeira-brasil.svg' },
+  { valor: 'Inglês', rotulo: 'Inglês', icone: './icons/figma/bandeira-reino-unido.svg' },
+  { valor: 'Espanhol', rotulo: 'Espanhol', icone: './icons/figma/bandeira-espanha.svg' },
+  { valor: 'Francês', rotulo: 'Francês', icone: './icons/figma/bandeira-franca.svg' },
+  { valor: 'Alemão', rotulo: 'Alemão', icone: './icons/figma/bandeira-alemanha.svg' },
 ] as const;
 
 /** Rótulos do stepper de "Novo jogo" — Informações, Mídias, Permissões. */
