@@ -196,6 +196,16 @@ function Numero({
  * progresso") e a última coluna deixa de ser botão — vira o estado do que já foi
  * entregue, em laranja.
  */
+const COL_MEUS_TESTES = {
+  tipo: 'w-[120px]',
+  expira: 'w-[130px]',
+  duracao: 'w-[160px]',
+  testes: 'w-[170px]',
+  progresso: 'w-[180px]',
+  recompensa: 'w-[130px]',
+  acoes: 'w-[250px]',
+} as const;
+
 function TabelaMeusTestes({ linhas }: { linhas: PlayerGameHistory[] }) {
   if (!linhas.length) {
     return (
@@ -207,45 +217,45 @@ function TabelaMeusTestes({ linhas }: { linhas: PlayerGameHistory[] }) {
   }
 
   return (
-    <Table larguraMinima={1150}>
+    <Table larguraMinima={1400}>
       <TableHeader>
-        <span className="flex-1">Nome do teste</span>
-          <span className="flex w-[120px] shrink-0 items-center gap-2">
+        <span className="flex-1 whitespace-nowrap">Nome do teste</span>
+          <span className={cn('flex shrink-0 items-center gap-2 whitespace-nowrap', COL_MEUS_TESTES.tipo)}>
             Tipo
             <Ordenacao />
           </span>
-          <span className="w-[130px] shrink-0">Expira</span>
-          <span className="w-[140px] shrink-0">Duração estimada</span>
-          <span className="w-[140px] shrink-0">Testes necessários</span>
-          <span className="w-[180px] shrink-0">Progresso</span>
-          <span className="flex w-[130px] shrink-0 items-center gap-2">
+          <span className={cn("shrink-0 whitespace-nowrap", COL_MEUS_TESTES.expira)}>Expira</span>
+          <span className={cn("shrink-0 whitespace-nowrap", COL_MEUS_TESTES.duracao)}>Duração estimada</span>
+          <span className={cn("shrink-0 whitespace-nowrap", COL_MEUS_TESTES.testes)}>Testes necessários</span>
+          <span className={cn("shrink-0 whitespace-nowrap", COL_MEUS_TESTES.progresso)}>Progresso</span>
+          <span className={cn("flex shrink-0 items-center gap-2 whitespace-nowrap",COL_MEUS_TESTES.recompensa)}>
             Recompensa
             <Ordenacao />
           </span>
-        <span className="w-[180px] shrink-0">Ações</span>
+        <span className={cn("shrink-0 whitespace-nowrap", COL_MEUS_TESTES.acoes)}>Ações</span>
       </TableHeader>
 
       {linhas.map((linha) => (
         <TableRow key={linha.id}>
             <span className="flex-1 truncate text-graphic text-white">{linha.name}</span>
 
-            <span className="w-[120px] shrink-0">
+            <span className={cn("shrink-0", COL_MEUS_TESTES.tipo)}>
               <Tag tone={linha.kindTone}>{linha.kind}</Tag>
             </span>
 
-            <span className="w-[130px] shrink-0 text-graphic text-white">
+            <span className={cn("shrink-0 text-graphic text-white", COL_MEUS_TESTES.expira)}>
               {linha.expiresAt ? <Expira iso={linha.expiresAt} /> : <b>EXPIRADO</b>}
             </span>
 
-            <span className="w-[140px] shrink-0 text-graphic text-white">
+            <span className={cn("shrink-0 text-graphic text-white", COL_MEUS_TESTES.duracao)}>
               <b>{linha.estimatedMinutes}</b>m
             </span>
 
-            <span className="w-[140px] shrink-0 text-graphic text-white">
+            <span className={cn("shrink-0 text-graphic text-white", COL_MEUS_TESTES.testes)}>
               {String(linha.slotsTaken).padStart(2, '0')}/{linha.slotsTotal}
             </span>
 
-            <span className="flex w-[180px] shrink-0 items-center gap-2">
+            <span className={cn("flex shrink-0 items-center gap-2", COL_MEUS_TESTES.progresso)}>
               <span className="text-graphic text-white">{Math.round(linha.progress * 100)}%</span>
               <span className="h-2 flex-1 overflow-hidden rounded-full bg-white">
                 <span
@@ -255,11 +265,11 @@ function TabelaMeusTestes({ linhas }: { linhas: PlayerGameHistory[] }) {
               </span>
             </span>
 
-            <span className="w-[130px] shrink-0 text-graphic text-white">
+            <span className={cn("shrink-0 text-graphic text-white", COL_MEUS_TESTES.recompensa)}>
               {formatCurrency(linha.rewardCents)}
             </span>
 
-            <span className="flex w-[180px] shrink-0 items-center justify-end gap-2.5">
+            <span className={cn("flex shrink-0 items-center justify-end gap-2.5", COL_MEUS_TESTES.acoes)}>
               <span className="flex-1 text-right text-button text-orbit-orange">{linha.status}</span>
               <IconButton aria-label="Mais ações" title="Ainda não disponível" className="shrink-0">
                 <MoreVertical className="size-5" />
