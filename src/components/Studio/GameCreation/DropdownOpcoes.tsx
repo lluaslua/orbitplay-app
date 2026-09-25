@@ -1,3 +1,4 @@
+import { Fragment } from 'react';
 import * as DropdownMenuPrimitive from '@radix-ui/react-dropdown-menu';
 import { Check } from 'lucide-react';
 import { caixaCampo } from '@/components/UI';
@@ -8,11 +9,16 @@ export interface OpcaoDropdown {
   rotulo: string;
   /** Bandeira do idioma (`Flag` do arquivo), quando houver. */
   icone?: string;
+  /** Tag à direita do rótulo — o menu de tipo da pergunta usa "Nova". */
+  badge?: string;
+  /** Abre um grupo novo: o menu põe uma linha acima deste item. */
+  startsGroup?: boolean;
 }
 
 type Props = {
   label: string;
   required?: boolean;
+  className?: string;
   opcoes: readonly OpcaoDropdown[];
 } & (
   | { multiplo: true; valor: string[]; onChange: (valor: string[]) => void }
@@ -29,7 +35,7 @@ type Props = {
  * marcado fica em `g-midnight` com texto branco em negrito.
  */
 export function DropdownOpcoes(props: Props) {
-  const { label, required, opcoes, multiplo } = props;
+  const { label, required, className, opcoes, multiplo } = props;
   const marcados = multiplo ? props.valor : props.valor ? [props.valor] : [];
   const escolhidas = opcoes.filter((opcao) => marcados.includes(opcao.valor));
 
@@ -46,7 +52,7 @@ export function DropdownOpcoes(props: Props) {
   }
 
   return (
-    <div className="flex w-full flex-col gap-1">
+    <div className={cn('flex w-full flex-col gap-1', className)}>
       <span className="text-body-bold text-white">
         {label}
         {required && '*'}
@@ -74,30 +80,47 @@ export function DropdownOpcoes(props: Props) {
           <DropdownMenuPrimitive.Content
             align="start"
             sideOffset={4}
-            className="z-50 flex w-[var(--radix-dropdown-menu-trigger-width)] flex-col gap-1 rounded-xl border border-orbit-light bg-white p-3"
+            className="z-50 flex max-h-[min(32rem,var(--radix-dropdown-menu-content-available-height))] w-[var(--radix-dropdown-menu-trigger-width)] flex-col gap-1 overflow-y-auto rounded-xl border border-orbit-light bg-white p-3"
           >
             {opcoes.map((opcao) => {
               const marcado = marcados.includes(opcao.valor);
               return (
-                <DropdownMenuPrimitive.CheckboxItem
-                  key={opcao.valor}
-                  checked={marcado}
-                  onSelect={(event) => {
-                    // Com vários, o painel fica aberto para marcar o próximo.
-                    if (multiplo) event.preventDefault();
-                    alternar(opcao.valor);
-                  }}
-                  className={cn(
-                    'flex h-10 cursor-pointer select-none items-center gap-3 rounded-lg px-3 text-body outline-none',
-                    marcado
-                      ? 'bg-orbit-g-midnight font-bold text-white'
-                      : 'text-black data-[highlighted]:bg-orbit-light',
+                <Fragment key={opcao.valor}>
+                  {opcao.startsGroup && (
+                    <div role="separator" className="my-1 h-px bg-orbit-light" />
                   )}
-                >
-                  {multiplo ? <Caixa marcado={marcado} /> : <Radio marcado={marcado} />}
-                  {opcao.icone && <img src={opcao.icone} alt="" className="size-6" />}
-                  {opcao.rotulo}
-                </DropdownMenuPrimitive.CheckboxItem>
+                  <DropdownMenuPrimitive.CheckboxItem
+                    checked={marcado}
+                    aria-label={opcao.rotulo}
+                    onSelect={(event) => {
+                      // Com vários, o painel fica aberto para marcar o próximo.
+                      if (multiplo) event.preventDefault();
+                      alternar(opcao.valor);
+                    }}
+                    className={cn(
+                      'flex h-10 cursor-pointer select-none items-center gap-3 rounded-lg px-3 text-body outline-none',
+                      marcado
+                        ? 'bg-orbit-g-midnight font-bold text-white'
+                        : 'text-black data-[highlighted]:bg-orbit-light',
+                    )}
+                  >
+                    {multiplo ? <Caixa marcado={marcado} /> : <Radio marcado={marcado} />}
+                    {opcao.icone && <img src={opcao.icone} alt="" className="size-6" />}
+                    <span className="min-w-0 flex-1 truncate">{opcao.rotulo}</span>
+                    {opcao.badge && (
+                      <span
+                        className={cn(
+                          'shrink-0 rounded-md px-1.5 py-0.5 text-[10px] font-bold leading-none',
+                          marcado
+                            ? 'bg-white/20 text-white'
+                            : 'bg-orbit-info-bg text-orbit-info',
+                        )}
+                      >
+                        {opcao.badge}
+                      </span>
+                    )}
+                  </DropdownMenuPrimitive.CheckboxItem>
+                </Fragment>
               );
             })}
           </DropdownMenuPrimitive.Content>

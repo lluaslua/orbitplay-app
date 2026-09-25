@@ -478,8 +478,8 @@ export const QUESTION_TYPES: {
 }[] = [
   { id: 'SHORT_TEXT', label: 'Resposta curta' },
   { id: 'PARAGRAPH', label: 'Parágrafo' },
-  { id: 'MULTIPLE_CHOICE', label: 'Múltipla escolha', startsGroup: true },
-  { id: 'CHECKBOXES', label: 'Caixas de seleção' },
+  { id: 'MULTIPLE_CHOICE', label: 'Escolha', startsGroup: true },
+  { id: 'CHECKBOXES', label: 'Múltipla escolha' },
   { id: 'DROPDOWN', label: 'Lista suspensa' },
   { id: 'FILE_UPLOAD', label: 'Upload de arquivo', startsGroup: true },
   { id: 'LINEAR_SCALE', label: 'Escala linear', startsGroup: true },

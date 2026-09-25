@@ -1,18 +1,22 @@
 import { useRef, useState, type ChangeEvent } from 'react';
-import { Eye, Plus, Trash2 } from 'lucide-react';
+import { Eye, Plus } from 'lucide-react';
 import { Checkbox, FieldError, IconButton, Input, Radio, SelectField } from '@/components/UI';
 import { useTestStore } from '@/stores/testStore';
 import type { FormQuestion, QuestionType } from '@/types';
-import { QUESTION_TYPES } from '@/utils/constants';
 import { cn } from '@/utils/helpers';
 import { reduzirImagem } from '@/utils/imagem';
+import { DropdownTipoPergunta } from './DropdownTipoPergunta';
+
+function precisaOpcoes(type: QuestionType) {
+  return type === 'MULTIPLE_CHOICE' || type === 'CHECKBOXES' || type === 'DROPDOWN';
+}
 
 /**
  * ETAPA 2 — A avaliação do seu teste. Figma: `319:7290`, card `319:7695`.
  *
  * Cada pergunta é um card: linha de tipo (seletor + botão de imagem +
- * "Obrigatória"), divisória, o enunciado, o campo de resposta, outra divisória
- * e a fileira de ações. Os campos têm 390px fixos, como no arquivo.
+ * "Obrigatória" + ações à direita), divisória, o enunciado e o campo de
+ * resposta. Os campos têm 390px fixos, como no arquivo.
  *
  * O botão de imagem anexa uma imagem à pergunta. O arquivo só desenha o botão,
  * então a imagem escolhida entra logo abaixo do enunciado, na largura dos
@@ -112,37 +116,29 @@ function CardPergunta({
   }
 
   return (
-    <section className="flex flex-col items-start gap-6 rounded-3xl border border-white p-6">
-      {/* Tipo · imagem · obrigatória */}
-      <div className="flex items-center gap-6">
-        <SelectField
-          label="Tipo da pergunta"
-          required
+    <section className="flex w-full flex-col items-start gap-6 rounded-3xl border border-white p-6">
+      {/* Tipo · imagem · obrigatória · ações (Figma: ações na mesma fileira, à direita). */}
+      <div className="flex w-full flex-wrap items-end gap-6">
+        <DropdownTipoPergunta
           className="w-[390px]"
-          value={pergunta.type}
-          onChange={(event) => {
-            const type = event.target.value as QuestionType;
-            const precisaOpcoes = type === 'MULTIPLE_CHOICE' || type === 'CHECKBOXES';
+          valor={pergunta.type}
+          onChange={(type) => {
             onChange({
               type,
-              options: precisaOpcoes && !pergunta.options?.length ? ['', ''] : pergunta.options,
+              options:
+                precisaOpcoes(type) && !pergunta.options?.length
+                  ? ['', '', '', '']
+                  : pergunta.options,
             });
           }}
-        >
-          {QUESTION_TYPES.map((item) => (
-            <option key={item.id} value={item.id} className="bg-orbit-bg">
-              {item.label}
-              {item.isNew ? ' (Nova)' : ''}
-            </option>
-          ))}
-        </SelectField>
+        />
 
         <IconButton
           aria-label={
             pergunta.imageUrl ? 'Trocar a imagem da pergunta' : 'Adicionar imagem à pergunta'
           }
           onClick={escolherImagem}
-          className="mt-6 shrink-0"
+          className="size-[46px] shrink-0 rounded-xl"
         >
           <img src="./icons/figma/question-image.svg" alt="" className="size-6" />
         </IconButton>
@@ -154,13 +150,20 @@ function CardPergunta({
           onChange={receberImagem}
         />
 
-        <label className="mt-6 flex h-[46px] shrink-0 cursor-pointer items-center gap-2">
+        <label className="flex h-[46px] shrink-0 cursor-pointer items-center gap-2">
           <Checkbox
             checked={pergunta.required}
             onCheckedChange={(checked) => onChange({ required: checked === true })}
           />
           <span className="text-body text-white">Obrigatória</span>
         </label>
+
+        <div className="ml-auto flex h-[46px] items-center gap-6">
+          <AcaoPergunta rotulo="Subir" icone="question-up" onClick={onSubir} />
+          <AcaoPergunta rotulo="Descer" icone="question-down" onClick={onDescer} />
+          <AcaoPergunta rotulo="Duplicar" icone="question-copy" onClick={onDuplicar} />
+          <AcaoPergunta rotulo="Deletar" icone="question-trash" onClick={onDeletar} destrutiva />
+        </div>
       </div>
 
       <hr className="w-full border-orbit-border" />
@@ -195,10 +198,16 @@ function CardPergunta({
 
       {erroImagem && <FieldError message={erroImagem} />}
 
-      {(pergunta.type === 'MULTIPLE_CHOICE' || pergunta.type === 'CHECKBOXES') && (
+      {precisaOpcoes(pergunta.type) && (
         <OpcoesEditor
           opcoes={pergunta.options ?? []}
-          modo={pergunta.type === 'MULTIPLE_CHOICE' ? 'radio' : 'checkbox'}
+          modo={
+            pergunta.type === 'MULTIPLE_CHOICE'
+              ? 'radio'
+              : pergunta.type === 'CHECKBOXES'
+                ? 'checkbox'
+                : 'lista'
+          }
           onChange={(options) => onChange({ options })}
         />
       )}
@@ -206,23 +215,14 @@ function CardPergunta({
       {pergunta.type === 'LINEAR_SCALE' && (
         <EscalaLinearEditor pergunta={pergunta} onChange={onChange} />
       )}
-
-      <hr className="w-full border-orbit-border" />
-
-      <div className="flex items-start gap-6">
-        <AcaoPergunta rotulo="Subir" icone="question-up" onClick={onSubir} />
-        <AcaoPergunta rotulo="Descer" icone="question-down" onClick={onDescer} />
-        <AcaoPergunta rotulo="Duplicar" icone="question-copy" onClick={onDuplicar} />
-        <AcaoPergunta rotulo="Deletar" icone="question-trash" onClick={onDeletar} destrutiva />
-      </div>
     </section>
   );
 }
 
 /**
- * Lista de opções de "Escolha" (radio) e "Múltipla Escolha" (checkbox) —
- * mesmo círculo/quadrado do design system, só ilustrativo aqui: quem edita é
- * o campo de texto ao lado, não o próprio indicador.
+ * Lista de opções de "Escolha" (radio), "Múltipla escolha" (checkbox) e
+ * "Lista suspensa". O círculo/quadrado é só ilustrativo: quem edita é o campo
+ * de texto ao lado, não o próprio indicador.
  */
 function OpcoesEditor({
   opcoes,
@@ -230,7 +230,7 @@ function OpcoesEditor({
   onChange,
 }: {
   opcoes: string[];
-  modo: 'radio' | 'checkbox';
+  modo: 'radio' | 'checkbox' | 'lista';
   onChange: (opcoes: string[]) => void;
 }) {
   function atualizar(indice: number, valor: string) {
@@ -245,7 +245,8 @@ function OpcoesEditor({
     <div className="flex flex-col gap-3">
       {opcoes.map((opcao, indice) => (
         <div key={indice} className="flex items-center gap-3">
-          {modo === 'radio' ? <Radio disabled /> : <Checkbox disabled />}
+          {modo === 'radio' && <Radio disabled />}
+          {modo === 'checkbox' && <Checkbox disabled />}
           <Input
             className="w-[390px]"
             value={opcao}
@@ -257,9 +258,9 @@ function OpcoesEditor({
             type="button"
             onClick={() => remover(indice)}
             aria-label={`Remover opção ${indice + 1}`}
-            className="text-orbit-error-l orbit-focus-ring"
+            className="orbit-focus-ring"
           >
-            <Trash2 className="size-5" />
+            <img src="./icons/figma/question-trash.svg" alt="" className="size-6" />
           </button>
         </div>
       ))}
