@@ -11,11 +11,11 @@ import { cn } from '@/utils/helpers';
 const TIPOS: { id: QuestionType; rotulo: string; icone: IconeTipo }[] = [
   { id: 'SHORT_TEXT', rotulo: 'Resposta curta', icone: 'linhas' },
   { id: 'MULTIPLE_CHOICE', rotulo: 'Escolha', icone: 'radio' },
-  { id: 'CHECKBOXES', rotulo: 'Múltipla escolha', icone: 'radio' },
+  { id: 'CHECKBOXES', rotulo: 'Múltipla escolha', icone: 'quadrado' },
   { id: 'LINEAR_SCALE', rotulo: 'Escala linear', icone: 'escala' },
 ];
 
-type IconeTipo = 'linhas' | 'radio' | 'escala';
+type IconeTipo = 'linhas' | 'radio' | 'quadrado' | 'escala';
 
 type Props = {
   valor: QuestionType;
@@ -83,22 +83,22 @@ function Icone({ nome, marcado }: { nome: IconeTipo; marcado: boolean }) {
   if (nome === 'radio') {
     return (
       <svg viewBox="0 0 20 20" className="size-5 shrink-0" aria-hidden>
-        <circle cx="10" cy="10" r="7" fill="none" stroke={cor} strokeWidth="1.8" />
-        <circle cx="10" cy="10" r="3.2" fill={cor} />
+        <circle cx="10" cy="10" r="6" fill={cor} />
+      </svg>
+    );
+  }
+
+  if (nome === 'quadrado') {
+    return (
+      <svg viewBox="0 0 20 20" className="size-5 shrink-0" aria-hidden>
+        <rect x="4" y="4" width="12" height="12" rx="1.5" fill={cor} />
       </svg>
     );
   }
 
   return (
     <svg viewBox="0 0 20 20" className="size-5 shrink-0" aria-hidden>
-      <path
-        d="M4 13.5 8.2 6.2 12 11.2 16 4.5"
-        fill="none"
-        stroke={cor}
-        strokeWidth="1.8"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
+      <path d="M3 15.5 15 3.5" stroke={cor} strokeWidth="2" strokeLinecap="round" />
     </svg>
   );
 }
