@@ -46,7 +46,12 @@ export function ModalConfirmacao({
           <X className="size-4" strokeWidth={2.5} />
         </ModalClose>
 
-        <img src={`./icons/figma/acessos/selo-${selo}.png`} alt="" className="mx-auto size-16" />
+        {/* Selo: dois anéis translúcidos do azul da marca em volta do glifo em degradê. */}
+        <span className="mx-auto grid size-16 place-items-center rounded-full bg-orbit-blue/10">
+          <span className="grid size-12 place-items-center rounded-full bg-orbit-blue/10">
+            <img src={`./icons/figma/acessos/selo-${selo}.svg`} alt="" />
+          </span>
+        </span>
 
         <ModalTitle className="mt-[22px] text-subtitle leading-[25px] text-orbit-dark">
           {titulo}

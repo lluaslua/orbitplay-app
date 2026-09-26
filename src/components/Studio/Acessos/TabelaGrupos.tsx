@@ -31,7 +31,9 @@ export function TabelaGrupos({ grupos, usuarios }: { grupos: AccessGroup[]; usua
           {grupos.map((grupo) => (
             <div key={grupo.id} className="flex h-16 items-center gap-6 px-6 text-graphic text-white">
               <span className="flex min-w-0 flex-1 items-center gap-2">
-                <img src="./icons/figma/acessos/grupo.png" alt="" className="size-6 shrink-0" />
+                <span className="grid size-6 shrink-0 place-items-center">
+                  <img src="./icons/figma/acessos/grupo.svg" alt="" />
+                </span>
                 <span className="truncate">{grupo.name}</span>
               </span>
 
