@@ -5,6 +5,7 @@ export const queryKeys = {
   auth: ['auth'] as const,
   studioDashboard: ['studio', 'dashboard'] as const,
   studioTeam: ['studio', 'team'] as const,
+  studioAccess: ['studio', 'access'] as const,
   games: (studioId?: string) => ['games', studioId ?? 'all'] as const,
   game: (id: string) => ['games', id] as const,
   tests: (gameId?: string) => ['tests', gameId ?? 'all'] as const,

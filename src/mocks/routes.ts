@@ -8,6 +8,8 @@
  * Os caminhos aqui sao relativos a VITE_API_URL.
  */
 import type {
+  AccessGroupPatch,
+  AccessUserPatch,
   ApiError,
   AuthUser,
   AvailableTest,
@@ -17,15 +19,22 @@ import type {
   SessionSubmission,
 } from '@/types';
 import { CHAT_MESSAGE_MAX_LENGTH, TEST_MODEL_LABELS } from '@/utils/constants';
-import { clamp, uid } from '@/utils/helpers';
+import { clamp, senhaValida, uid } from '@/utils/helpers';
 import {
+  atualizarGrupo,
+  atualizarUsuario,
   buildPluginReport,
+  buscarUsuarioAcesso,
+  convidarUsuario,
+  criarGrupo,
   buildReport,
   canAccessCommunity,
   communityIsOpen,
   createGame,
   createTest,
   db,
+  excluirGrupo,
+  excluirUsuario,
   findAccount,
   findChannel,
   findUserById,
@@ -44,6 +53,7 @@ import {
   listParticipations,
   listSessions,
   listStudioTeam,
+  listarAcessos,
   listTests,
   postChannelMessage,
   toggleReaction,
@@ -70,6 +80,8 @@ export interface MockRoute {
   path: string;
   resolve: (ctx: MockContext) => MockResult;
 }
+
+const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 const ok = (data: unknown): MockResult => ({ status: 200, data });
 const created = (data: unknown): MockResult => ({ status: 201, data });
@@ -273,6 +285,83 @@ export const routes: MockRoute[] = [
     method: 'GET',
     path: '/studio/team',
     resolve: () => ok(listStudioTeam()),
+  },
+
+  // -------------------------------------------------------------------------
+  // Gerenciamento de acessos — usuários, grupos e as ações dos modais
+  // -------------------------------------------------------------------------
+  {
+    method: 'GET',
+    path: '/studio/access',
+    resolve: () => ok(listarAcessos()),
+  },
+  {
+    method: 'POST',
+    path: '/studio/access/users',
+    resolve: ({ body }) => {
+      const email = String(body?.email ?? '').trim();
+      if (!EMAIL.test(email)) return fail(400, { message: 'Informe um e-mail válido.' });
+
+      const usuario = convidarUsuario(email);
+      return usuario
+        ? created(usuario)
+        : fail(409, { message: 'Este e-mail já tem acesso ao estúdio.', code: 'EMAIL_TAKEN' });
+    },
+  },
+  {
+    method: 'PATCH',
+    path: '/studio/access/users/:id',
+    resolve: ({ params, body }) => {
+      const usuario = atualizarUsuario(params.id, body as AccessUserPatch);
+      return usuario ? ok(usuario) : fail(404, { message: 'Usuário não encontrado.' });
+    },
+  },
+  {
+    method: 'POST',
+    path: '/studio/access/users/:id/password',
+    resolve: ({ params, body }) => {
+      if (!buscarUsuarioAcesso(params.id)) return fail(404, { message: 'Usuário não encontrado.' });
+      if (!senhaValida(String(body?.password ?? ''))) {
+        return fail(400, { message: 'A senha não atende aos requisitos.', code: 'WEAK_PASSWORD' });
+      }
+      return ok({ message: 'Senha atualizada.' });
+    },
+  },
+  {
+    method: 'DELETE',
+    path: '/studio/access/users/:id',
+    resolve: ({ params }) => {
+      const usuario = buscarUsuarioAcesso(params.id);
+      if (!usuario) return fail(404, { message: 'Usuário não encontrado.' });
+      if (usuario.admin) {
+        return fail(409, { message: 'O administrador do estúdio não pode ser excluído.', code: 'ADMIN' });
+      }
+      excluirUsuario(params.id);
+      return ok({ id: params.id });
+    },
+  },
+  {
+    method: 'POST',
+    path: '/studio/access/groups',
+    resolve: ({ body }) => {
+      const name = String(body?.name ?? '').trim();
+      if (!name) return fail(400, { message: 'Informe o nome do grupo.' });
+      return created(criarGrupo(name, (body?.memberIds as string[] | undefined) ?? []));
+    },
+  },
+  {
+    method: 'PATCH',
+    path: '/studio/access/groups/:id',
+    resolve: ({ params, body }) => {
+      const grupo = atualizarGrupo(params.id, body as AccessGroupPatch);
+      return grupo ? ok(grupo) : fail(404, { message: 'Grupo não encontrado.' });
+    },
+  },
+  {
+    method: 'DELETE',
+    path: '/studio/access/groups/:id',
+    resolve: ({ params }) =>
+      excluirGrupo(params.id) ? ok({ id: params.id }) : fail(404, { message: 'Grupo não encontrado.' }),
   },
 
   // -------------------------------------------------------------------------

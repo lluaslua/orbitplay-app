@@ -68,7 +68,7 @@ O que está em `src/mocks/` é fluxo de desenvolvimento: o andaime que permitiu 
 - Fixture é dado de demonstração, não conteúdo de produto. Texto, imagem e número que a tela precisa mostrar de verdade vêm da API, não de `mocks/fixtures`.
 - Feature nova não pode depender de comportamento que só o mock tem. Se a rota não cabe num contrato que o backend vai cumprir, ela não entra.
 - Conta de demonstração e latência artificial são de desenvolvimento e ficam no `.env.local`, nunca chumbadas no código.
-- Rota, fixture e tela novas não entram em `mocks/routes.ts` nem em `mocks/fixtures`. Mexer ali é só para manter de pé o que já existe.
+- Rota, fixture e tela novas não entram em `mocks/routes.ts` nem em `mocks/fixtures`. Mexer ali é só para manter de pé o que já existe. Exceção aberta em 26/09/2026: "Gerenciamento de acessos" ganhou `fixtures/acessos.json` e as rotas `/studio/access` para a tela poder ser conferida contra o Figma antes do backend.
 
 Estado atual, conhecido e aceito: o `lib/api.ts` importa `mockAdapter` de forma estática, então as fixtures viajam no bundle de produção mesmo com `VITE_USE_MOCKS=false`. Isso sai junto com a camada de mock quando o backend entrar, não antes.
 

@@ -1,4 +1,5 @@
 import { Link, useNavigate } from 'react-router-dom';
+import { cn } from '@/utils/helpers';
 
 /**
  * Cabeçalho das telas internas — Figma: breadcrumb `312:6618`, título `312:6619`
@@ -15,7 +16,16 @@ export interface Trilha {
   to?: string;
 }
 
-export function PageHeading({ trilha, titulo }: { trilha: Trilha[]; titulo: string }) {
+export function PageHeading({
+  trilha,
+  titulo,
+  linha = 'clara',
+}: {
+  trilha: Trilha[];
+  titulo: string;
+  /** "Gerenciamento de acessos" fecha o bloco com a linha em `#0088FF`, não na cinza das outras telas. */
+  linha?: 'clara' | 'azul';
+}) {
   const navigate = useNavigate();
 
   return (
@@ -52,7 +62,7 @@ export function PageHeading({ trilha, titulo }: { trilha: Trilha[]; titulo: stri
         <h1 className="min-w-0 flex-1 text-headline text-white">{titulo}</h1>
       </div>
 
-      <hr className="mt-6 border-orbit-border" />
+      <hr className={cn('mt-6', linha === 'azul' ? 'border-orbit-azure' : 'border-orbit-border')} />
     </header>
   );
 }

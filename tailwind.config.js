@@ -60,6 +60,8 @@ export default {
           'blue-deep': '#2563EB', // Marca/M-Azul
           'blue-dark': '#0D3388', // Marca/M-Azul Esc
           purple: '#875AF2', // Brand/B-Purple
+          /** Linha do cabeçalho e seta de voltar de "Gerenciamento de acessos". */
+          azure: '#0088FF',
 
           // --- Texto ---
           text: '#FFFFFF', // BW/White

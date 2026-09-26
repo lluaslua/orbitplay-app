@@ -19,6 +19,7 @@ const StudioNewTestPage = lazy(() => import('@/pages/studio/tests/new'));
 const StudioReportPage = lazy(() => import('@/pages/studio/reports/[testId]'));
 const StudioSessionPage = lazy(() => import('@/pages/studio/reports/[sessionId]'));
 const StudioPluginReportPage = lazy(() => import('@/pages/studio/reports/plugin'));
+const StudioAcessosPage = lazy(() => import('@/pages/studio/acessos'));
 
 const PlayerHomePage = lazy(() => import('@/pages/player/index'));
 const PlayerCatalogPage = lazy(() => import('@/pages/player/games'));
@@ -90,6 +91,7 @@ export default function App() {
             <Route path="/studio/games/new" element={<StudioNewGamePage />} />
             <Route path="/studio/games/:gameId" element={<StudioGameDetailPage />} />
             <Route path="/studio/tests/new" element={<StudioNewTestPage />} />
+            <Route path="/studio/access" element={<StudioAcessosPage />} />
             <Route path="/studio/reports/:testId" element={<StudioReportPage />} />
             <Route
               path="/studio/reports/:testId/sessions/:sessionId"

@@ -1,5 +1,6 @@
 import { Download, FileSpreadsheet, FileText } from 'lucide-react';
 import { IconButton } from '@/components/UI';
+import { cn } from '@/utils/helpers';
 
 /**
  * Os botões de exportar que o arquivo desenha no canto dos blocos de relatório:
@@ -19,15 +20,18 @@ export function BotoesExportar({
   quantidade = 3,
   variante = 'dim',
   rotulo = 'Exportar',
+  className,
 }: {
   quantidade?: number;
   variante?: 'dim' | 'outline';
   rotulo?: string;
+  /** O espaço entre os botões varia por tela: 8 nos relatórios, 24 em "Gerenciamento de acessos". */
+  className?: string;
 }) {
   const icones = [FileText, FileSpreadsheet, Download].slice(0, quantidade);
 
   return (
-    <span className="flex shrink-0 items-center gap-2">
+    <span className={cn('flex shrink-0 items-center gap-2', className)}>
       {icones.map((Icone, indice) => (
         <IconButton
           key={indice}
