@@ -7,6 +7,7 @@ import {
   ModalDescription,
   ModalTitle,
 } from '@/components/UI';
+import { cn } from '@/utils/helpers';
 
 /**
  * O modal branco de 300px das confirmações (Figma: os cinco frames "Modal").
@@ -46,10 +47,20 @@ export function ModalConfirmacao({
           <X className="size-4" strokeWidth={2.5} />
         </ModalClose>
 
-        {/* Selo: dois anéis translúcidos do azul da marca em volta do glifo em degradê. */}
-        <span className="mx-auto grid size-16 place-items-center rounded-full bg-orbit-blue/10">
-          <span className="grid size-12 place-items-center rounded-full bg-orbit-blue/10">
-            <img src={`./icons/figma/acessos/selo-${selo}.svg`} alt="" />
+        {/*
+          Selo: o glifo em degradê dentro de dois anéis do mesmo degradê
+          (Brand/B-Nightfall) a 10%, um de 64 e outro de 48. O SVG exportado
+          traz só o glifo; os anéis são estes dois spans.
+        */}
+        <span className="relative mx-auto grid size-16 place-items-center">
+          <span className="absolute inset-0 rounded-full bg-orbit-nightfall opacity-10" />
+          <span className="relative grid size-12 place-items-center">
+            <span className="absolute inset-0 rounded-full bg-orbit-nightfall opacity-10" />
+            <img
+              src={`./icons/figma/acessos/selo-${selo}.svg`}
+              alt=""
+              className={cn('relative', selo === 'pergunta' && 'mb-px')}
+            />
           </span>
         </span>
 
