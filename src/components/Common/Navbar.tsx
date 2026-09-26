@@ -1,4 +1,4 @@
-import { NavLink } from 'react-router-dom';
+import { NavLink, useNavigate } from 'react-router-dom';
 import {
   BarChart3,
   Bell,
@@ -99,6 +99,7 @@ function IconePerfil({ src }: { src: string }) {
 export function Navbar() {
   const { user, logout } = useAuth();
   const studio = useStudioUser();
+  const navigate = useNavigate();
 
   if (!user) return null;
 
@@ -216,7 +217,7 @@ export function Navbar() {
             className="w-[606px] rounded-xl border-orbit-light bg-white p-2"
           >
             {studio && (
-              <DropdownMenuItem className={itemPerfil}>
+              <DropdownMenuItem className={itemPerfil} onSelect={() => navigate(ROUTES.studio.access)}>
                 <IconePerfil src="./icons/figma/perfil-acessos.svg" />
                 Gerenciamento de acessos
               </DropdownMenuItem>
