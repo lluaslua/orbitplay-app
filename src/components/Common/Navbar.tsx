@@ -8,7 +8,6 @@ import {
   GraduationCap,
   Home,
   LayoutGrid,
-  LogOut,
   MessageCircleQuestion,
   Users,
   Wallet,
@@ -18,12 +17,11 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
   UserAvatar,
 } from '@/components/UI';
 import { useAuth } from '@/hooks/useAuth';
-import { usePlayerUser, useStudioUser } from '@/stores/authStore';
+import { useStudioUser } from '@/stores/authStore';
 import type { UserRole } from '@/types';
 import { ROUTES } from '@/utils/constants';
 import { cn } from '@/utils/helpers';
@@ -87,10 +85,20 @@ function Rotulo({ children }: { children: React.ReactNode }) {
   return <span className="hidden folgado:inline">{children}</span>;
 }
 
+const itemPerfil =
+  'gap-4 whitespace-nowrap px-4 py-3 text-[18px] leading-6 text-orbit-dark focus:bg-orbit-light focus:text-orbit-dark';
+
+function IconePerfil({ src }: { src: string }) {
+  return (
+    <span className="grid size-6 shrink-0 place-items-center">
+      <img src={src} alt="" />
+    </span>
+  );
+}
+
 export function Navbar() {
   const { user, logout } = useAuth();
   const studio = useStudioUser();
-  const player = usePlayerUser();
 
   if (!user) return null;
 
@@ -203,14 +211,22 @@ export function Navbar() {
             </button>
           </DropdownMenuTrigger>
 
-          <DropdownMenuContent align="end" className="w-56">
-            <DropdownMenuItem disabled>{user.email}</DropdownMenuItem>
-            {player && (
-              <DropdownMenuItem disabled>Nível {player.player.level}</DropdownMenuItem>
+          <DropdownMenuContent
+            align="end"
+            className="w-[606px] rounded-xl border-orbit-light bg-white p-2"
+          >
+            {studio && (
+              <DropdownMenuItem className={itemPerfil}>
+                <IconePerfil src="./icons/figma/perfil-acessos.svg" />
+                Gerenciamento de acessos
+              </DropdownMenuItem>
             )}
-            <DropdownMenuSeparator />
-            <DropdownMenuItem destructive onSelect={() => logout()}>
-              <LogOut />
+            <DropdownMenuItem className={itemPerfil}>
+              <IconePerfil src="./icons/figma/perfil-conta.svg" />
+              Minha conta
+            </DropdownMenuItem>
+            <DropdownMenuItem className={itemPerfil} onSelect={() => logout()}>
+              <IconePerfil src="./icons/figma/perfil-sair.svg" />
               Sair
             </DropdownMenuItem>
           </DropdownMenuContent>
