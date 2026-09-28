@@ -1,0 +1,117 @@
+{
+  "users": [
+    {
+      "id": "usr-blackstar",
+      "name": "Blackstar games",
+      "email": "contato@blackstargames.gg",
+      "status": "ACTIVE",
+      "admin": true,
+      "lastAccessAt": "2026-09-22T14:10:00-03:00",
+      "permissions": { "manageUsers": true, "deleteUsers": true }
+    },
+    {
+      "id": "usr-hideo",
+      "name": "Hideo Kojima",
+      "email": "hideo.kojima@example.com",
+      "avatarUrl": "./images/community/jones.webp",
+      "status": "ACTIVE",
+      "admin": false,
+      "lastAccessAt": "2026-09-22T14:10:00-03:00",
+      "permissions": { "manageUsers": true, "deleteUsers": false }
+    },
+    {
+      "id": "usr-funkyblackcat",
+      "name": "funkyblackcat",
+      "email": "funkyblackcat@example.com",
+      "avatarUrl": "./images/community/gusmao.webp",
+      "status": "ACTIVE",
+      "admin": false,
+      "lastAccessAt": "2026-09-22T14:10:00-03:00",
+      "permissions": { "manageUsers": true, "deleteUsers": true }
+    },
+    {
+      "id": "usr-alanzoka",
+      "name": "alanzoka",
+      "email": "alanzoka@example.com",
+      "avatarUrl": "./images/community/guilherme.webp",
+      "status": "ACTIVE",
+      "admin": false,
+      "lastAccessAt": "2026-09-22T14:10:00-03:00",
+      "permissions": { "manageUsers": false, "deleteUsers": false }
+    },
+    {
+      "id": "usr-brksedu",
+      "name": "brksedu",
+      "email": "brksedu@example.com",
+      "status": "ACTIVE",
+      "admin": false,
+      "lastAccessAt": "2026-09-22T14:10:00-03:00",
+      "permissions": { "manageUsers": true, "deleteUsers": false }
+    },
+    {
+      "id": "usr-fallen",
+      "name": "fallen",
+      "email": "fallen@example.com",
+      "status": "ACTIVE",
+      "admin": false,
+      "lastAccessAt": "2026-09-22T14:10:00-03:00",
+      "permissions": { "manageUsers": false, "deleteUsers": false }
+    },
+    {
+      "id": "usr-gaules",
+      "name": "gaules",
+      "email": "gaules@example.com",
+      "status": "ACTIVE",
+      "admin": false,
+      "lastAccessAt": "2026-09-22T14:10:00-03:00",
+      "permissions": { "manageUsers": false, "deleteUsers": false }
+    },
+    {
+      "id": "usr-cellbit",
+      "name": "cellbit",
+      "email": "cellbit@example.com",
+      "avatarUrl": "./images/community/cellbitos.webp",
+      "status": "ACTIVE",
+      "admin": false,
+      "lastAccessAt": "2026-09-22T14:10:00-03:00",
+      "permissions": { "manageUsers": false, "deleteUsers": false }
+    },
+    {
+      "id": "usr-zangado",
+      "name": "zangado",
+      "email": "zangado@example.com",
+      "status": "PENDING",
+      "admin": false,
+      "lastAccessAt": null,
+      "permissions": { "manageUsers": false, "deleteUsers": false }
+    },
+    {
+      "id": "usr-pewdiepie",
+      "name": "pewdiepie",
+      "email": "pewdiepie@example.com",
+      "status": "PENDING",
+      "admin": false,
+      "lastAccessAt": null,
+      "permissions": { "manageUsers": false, "deleteUsers": false }
+    },
+    {
+      "id": "usr-yoda",
+      "name": "yoda",
+      "email": "yoda@example.com",
+      "status": "INACTIVE",
+      "admin": false,
+      "lastAccessAt": null,
+      "permissions": { "manageUsers": false, "deleteUsers": false }
+    }
+  ],
+  "groups": [
+    { "id": "grp-diretoria", "name": "Diretoria", "memberIds": ["usr-hideo", "usr-funkyblackcat"] },
+    {
+      "id": "grp-qa",
+      "name": "QA",
+      "memberIds": ["usr-hideo", "usr-alanzoka", "usr-fallen", "usr-gaules"]
+    },
+    { "id": "grp-analitics", "name": "Analitics", "memberIds": ["usr-brksedu", "usr-cellbit"] },
+    { "id": "grp-rh", "name": "Rh", "memberIds": [] }
+  ]
+}

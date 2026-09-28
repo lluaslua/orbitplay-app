@@ -35,6 +35,7 @@ export const ROUTES = {
     game: (id: string) => `/studio/games/${id}`,
     newGame: '/studio/games/new',
     newTest: '/studio/tests/new',
+    access: '/studio/access',
     report: (testId: string) => `/studio/reports/${testId}`,
     session: (testId: string, sessionId: string) =>
       `/studio/reports/${testId}/sessions/${sessionId}`,

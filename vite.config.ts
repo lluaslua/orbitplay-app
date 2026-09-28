@@ -85,6 +85,8 @@ export default defineConfig({
     setupFiles: './src/test/setup.ts',
     include: ['src/**/*.test.{ts,tsx}'],
     restoreMocks: true,
+    // A latência artificial do mock é coisa do `npm run dev`; nos testes ela só atrasa o waitFor.
+    env: { VITE_MOCK_LATENCY: '0' },
   },
   build: {
     outDir: 'dist',

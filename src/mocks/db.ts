@@ -11,8 +11,14 @@ import playersFixture from './fixtures/players.json';
 import reportsFixture from './fixtures/reports.json';
 import sessionsFixture from './fixtures/sessions.json';
 import communityFixture from './fixtures/community.json';
+import acessosFixture from './fixtures/acessos.json';
 
 import type {
+  AccessGroup,
+  AccessGroupPatch,
+  AccessOverview,
+  AccessUser,
+  AccessUserPatch,
   Achievement,
   AuthUser,
   ChatAuthor,
@@ -43,6 +49,15 @@ import { uid } from '@/utils/helpers';
 interface Account {
   password: string;
   user: AuthUser;
+}
+
+/** Usuário do gerenciamento de acessos: os grupos dele são derivados dos `memberIds` de cada grupo. */
+type UsuarioAcesso = Omit<AccessUser, 'groups'>;
+
+interface GrupoAcesso {
+  id: string;
+  name: string;
+  memberIds: string[];
 }
 
 /** Clone profundo na inicializacao: os fixtures importados nunca sao mutados. */
@@ -114,6 +129,10 @@ export const db = {
     clone(playersFixture.gameMyTests) as unknown as PlayerGameHistory[],
   ),
   sessionOutcome: clone(playersFixture.sessionOutcome) as unknown as SessionOutcome,
+  acessos: {
+    users: clone(acessosFixture.users) as unknown as UsuarioAcesso[],
+    groups: clone(acessosFixture.groups) as GrupoAcesso[],
+  },
 };
 
 /**
@@ -249,6 +268,110 @@ const studioTeam: StudioTeam = {
 
 export function listStudioTeam(): StudioTeam {
   return studioTeam;
+}
+
+// ---------------------------------------------------------------------------
+// Gerenciamento de acessos — usuários e grupos do estúdio
+// ---------------------------------------------------------------------------
+
+function usuarioComGrupos(usuario: UsuarioAcesso): AccessUser {
+  return {
+    ...usuario,
+    groups: db.acessos.groups
+      .filter((grupo) => grupo.memberIds.includes(usuario.id))
+      .map((grupo) => grupo.name),
+  };
+}
+
+/** Grupo sem participante fica INACTIVE — é o que a tabela mostra para o "Rh". */
+function grupoComMembros(grupo: GrupoAcesso): AccessGroup {
+  const members = grupo.memberIds
+    .map((id) => db.acessos.users.find((usuario) => usuario.id === id))
+    .filter((usuario): usuario is UsuarioAcesso => !!usuario)
+    .map(({ id, name, avatarUrl }) => ({ id, name, avatarUrl }));
+
+  return { id: grupo.id, name: grupo.name, status: members.length ? 'ACTIVE' : 'INACTIVE', members };
+}
+
+export function listarAcessos(): AccessOverview {
+  const { users, groups } = db.acessos;
+
+  return {
+    summary: {
+      activeUsers: users.filter((usuario) => usuario.status === 'ACTIVE').length,
+      groups: groups.length,
+      pendingInvites: users.filter((usuario) => usuario.status === 'PENDING').length,
+      admins: users.filter((usuario) => usuario.admin).length,
+    },
+    users: users.map(usuarioComGrupos),
+    groups: groups.map(grupoComMembros),
+  };
+}
+
+export function buscarUsuarioAcesso(id: string): UsuarioAcesso | undefined {
+  return db.acessos.users.find((usuario) => usuario.id === id);
+}
+
+/** Convite: entra como PENDING até a pessoa criar a conta. Devolve null se o e-mail já está no estúdio. */
+export function convidarUsuario(email: string): AccessUser | null {
+  const normalizado = email.trim().toLowerCase();
+  if (db.acessos.users.some((usuario) => usuario.email.toLowerCase() === normalizado)) return null;
+
+  const usuario: UsuarioAcesso = {
+    id: uid('usr'),
+    name: normalizado.split('@')[0],
+    email: normalizado,
+    status: 'PENDING',
+    admin: false,
+    lastAccessAt: null,
+    permissions: { manageUsers: false, deleteUsers: false },
+  };
+  db.acessos.users.push(usuario);
+  return usuarioComGrupos(usuario);
+}
+
+export function atualizarUsuario(id: string, patch: AccessUserPatch): AccessUser | null {
+  const usuario = buscarUsuarioAcesso(id);
+  if (!usuario) return null;
+
+  if (patch.status) usuario.status = patch.status;
+  if (patch.permissions) usuario.permissions = { ...usuario.permissions, ...patch.permissions };
+  return usuarioComGrupos(usuario);
+}
+
+/** Tira o usuário do estúdio e de todos os grupos em que estava. */
+export function excluirUsuario(id: string): boolean {
+  const indice = db.acessos.users.findIndex((usuario) => usuario.id === id);
+  if (indice < 0) return false;
+
+  db.acessos.users.splice(indice, 1);
+  db.acessos.groups.forEach((grupo) => {
+    grupo.memberIds = grupo.memberIds.filter((membro) => membro !== id);
+  });
+  return true;
+}
+
+export function criarGrupo(name: string, memberIds: string[]): AccessGroup {
+  const grupo: GrupoAcesso = { id: uid('grp'), name: name.trim(), memberIds: [...new Set(memberIds)] };
+  db.acessos.groups.push(grupo);
+  return grupoComMembros(grupo);
+}
+
+export function atualizarGrupo(id: string, patch: AccessGroupPatch): AccessGroup | null {
+  const grupo = db.acessos.groups.find((item) => item.id === id);
+  if (!grupo) return null;
+
+  if (patch.name !== undefined) grupo.name = patch.name.trim();
+  if (patch.memberIds) grupo.memberIds = [...new Set(patch.memberIds)];
+  return grupoComMembros(grupo);
+}
+
+export function excluirGrupo(id: string): boolean {
+  const indice = db.acessos.groups.findIndex((grupo) => grupo.id === id);
+  if (indice < 0) return false;
+
+  db.acessos.groups.splice(indice, 1);
+  return true;
 }
 
 // ---------------------------------------------------------------------------
