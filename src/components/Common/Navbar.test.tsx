@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, useLocation } from 'react-router-dom';
 import { useAuthStore } from '@/stores/authStore';
 import { accounts } from '@/mocks/fixtures/players.json';
 import type { AuthUser } from '@/types';
@@ -8,11 +8,17 @@ import { Navbar } from './Navbar';
 
 const [estudio, tester] = accounts.map((conta) => conta.user as AuthUser);
 
+/** Expõe para onde o menu navegou. */
+function RotaAtual() {
+  return <p data-testid="rota">{useLocation().pathname}</p>;
+}
+
 function abrirMenuDoPerfil(user: AuthUser) {
   useAuthStore.setState({ user, token: 'token-teste' });
   render(
     <MemoryRouter>
       <Navbar />
+      <RotaAtual />
     </MemoryRouter>,
   );
   fireEvent.keyDown(screen.getByRole('button', { expanded: false, name: /Blackstar|Guilherme/ }), {
@@ -37,6 +43,14 @@ describe('menu do perfil', () => {
 
     const itens = screen.getAllByRole('menuitem').map((item) => item.textContent);
     expect(itens).toEqual(['Minha conta', 'Sair']);
+  });
+
+  it('abre o gerenciamento de acessos pelo menu', () => {
+    abrirMenuDoPerfil(estudio);
+
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Gerenciamento de acessos' }));
+
+    expect(screen.getByTestId('rota').textContent).toBe('/studio/access');
   });
 
   it('encerra a sessão ao escolher sair', () => {

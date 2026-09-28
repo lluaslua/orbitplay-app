@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { cn, formatCurrency, formatDuration } from './helpers';
+import { cn, formatCurrency, formatDuration, senhaValida } from './helpers';
 
 describe('formatCurrency', () => {
   it('formata centavos como moeda brasileira', () => {
@@ -20,5 +20,19 @@ describe('formatDuration', () => {
 describe('cn', () => {
   it('mantem junto o tamanho e a cor do texto', () => {
     expect(cn('text-button', 'text-orbit-dark')).toBe('text-button text-orbit-dark');
+  });
+});
+
+describe('senhaValida', () => {
+  it('aceita senha com número, símbolo, minúscula, maiúscula e oito caracteres', () => {
+    expect(senhaValida('Forte#2026')).toBe(true);
+  });
+
+  it('recusa senha sem símbolo', () => {
+    expect(senhaValida('Forte2026')).toBe(false);
+  });
+
+  it('recusa letra fora do alfabeto latino', () => {
+    expect(senhaValida('Forte#2026ç')).toBe(false);
   });
 });

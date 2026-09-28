@@ -191,3 +191,18 @@ export function average(values: number[]): number {
 export function isElectron(): boolean {
   return typeof window !== 'undefined' && window.orbit?.isElectron === true;
 }
+
+/**
+ * Regras de senha do modal "Redefinir senha de usuário": número, símbolo,
+ * minúscula, maiúscula, mínimo de 8 caracteres e só o alfabeto latino (sem acento).
+ */
+export function senhaValida(senha: string): boolean {
+  return (
+    senha.length >= 8 &&
+    /\d/.test(senha) &&
+    /[^A-Za-z0-9]/.test(senha) &&
+    /[a-z]/.test(senha) &&
+    /[A-Z]/.test(senha) &&
+    /^[\x20-\x7E]*$/.test(senha)
+  );
+}
