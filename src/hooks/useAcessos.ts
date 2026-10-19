@@ -25,10 +25,39 @@ export function useConvidarUsuario() {
   return useMutacaoAcessos((email: string) => post<AccessUser>('/studio/access/users', { email }));
 }
 
+/**
+ * Otimista: o toggle de permissão e o status mudam na lista na hora, sem
+ * esperar o PATCH e a recarga. Se a gravação falhar, a lista volta ao que era;
+ * no fim, a recarga traz os números do topo que o servidor recalcula.
+ */
 export function useAtualizarUsuario() {
-  return useMutacaoAcessos(({ id, ...mudancas }: AccessUserPatch & { id: string }) =>
-    patch<AccessUser>(`/studio/access/users/${id}`, mudancas),
-  );
+  const client = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ id, ...mudancas }: AccessUserPatch & { id: string }) =>
+      patch<AccessUser>(`/studio/access/users/${id}`, mudancas),
+    onMutate: async ({ id, permissions, ...resto }) => {
+      await client.cancelQueries({ queryKey: queryKeys.studioAccess });
+      const anterior = client.getQueryData<AccessOverview>(queryKeys.studioAccess);
+
+      client.setQueryData<AccessOverview>(queryKeys.studioAccess, (atual) =>
+        atual && {
+          ...atual,
+          users: atual.users.map((usuario) =>
+            usuario.id === id
+              ? { ...usuario, ...resto, permissions: { ...usuario.permissions, ...permissions } }
+              : usuario,
+          ),
+        },
+      );
+
+      return { anterior };
+    },
+    onError: (_erro, _variaveis, contexto) => {
+      if (contexto?.anterior) client.setQueryData(queryKeys.studioAccess, contexto.anterior);
+    },
+    onSettled: () => client.invalidateQueries({ queryKey: queryKeys.studioAccess }),
+  });
 }
 
 export function useRedefinirSenha() {

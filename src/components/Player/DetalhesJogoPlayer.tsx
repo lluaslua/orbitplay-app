@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { MoreVertical } from 'lucide-react';
 import { ComunidadeJogo } from '@/components/Common/ComunidadeJogo';
 import { PageHeading } from '@/components/Common/PageHeading';
@@ -15,9 +15,9 @@ import {
   Tag,
 } from '@/components/UI';
 import { useGame } from '@/hooks/useGames';
-import { useGameHistory, usePlayerGameTests } from '@/hooks/usePlayer';
+import { useGameHistory, usePlayerGameTests, useStartTest } from '@/hooks/usePlayer';
 import { gameImageStorage } from '@/stores/gamesStore';
-import type { Game, PlayerGameHistory, PlayerGameTest } from '@/types';
+import type { ApiError, Game, PlayerGameHistory, PlayerGameTest, UnavailableReason } from '@/types';
 import { ROUTES } from '@/utils/constants';
 import { cn, formatAmount, formatCountdown, formatCurrency, formatNumber } from '@/utils/helpers';
 
@@ -363,11 +363,25 @@ function TabelaTestes({ testes }: { testes: PlayerGameTest[] }) {
   );
 }
 
+/** O texto da coluna "Ações" quando o teste não abre para o jogador. */
+const MOTIVO_INDISPONIVEL: Record<UnavailableReason, string> = {
+  DEVICE_INCOMPATIBLE: 'Indisponível para seu dispositivo',
+  NO_SLOTS: 'Sem vagas',
+  CLOSED: 'Encerrado',
+  ELITE_ONLY: 'Exclusivo ELITE',
+};
+
 /**
  * A coluna "Ações" só vira botão quando há o que fazer. Em análise, baixando ou
  * indisponível, o arquivo mostra texto — e é isso que o jogador precisa ler.
+ *
+ * "Começar!" reserva a vaga na API antes de abrir o tutorial; se o teste não
+ * aceitar o jogador (sem vagas, fora do público, ELITE), o motivo aparece ali.
  */
 function Acao({ teste }: { teste: PlayerGameTest }) {
+  const navigate = useNavigate();
+  const comecar = useStartTest();
+
   if (teste.action === 'REVIEW') {
     return (
       <span className="flex-1 text-center text-button text-orbit-g-emerald">
@@ -383,23 +397,41 @@ function Acao({ teste }: { teste: PlayerGameTest }) {
   if (teste.action === 'UNAVAILABLE') {
     return (
       <span className="flex-1 text-center text-caption text-white">
-        Indisponível para seu dispositivo
+        {MOTIVO_INDISPONIVEL[teste.unavailableReason ?? 'DEVICE_INCOMPATIBLE']}
       </span>
     );
   }
 
-  const continuando = teste.action === 'CONTINUE';
+  if (teste.action === 'CONTINUE') {
+    return (
+      <Link
+        to={ROUTES.player.gameplay(teste.id)}
+        className="flex h-9 flex-1 items-center justify-center rounded-lg bg-orbit-flame text-button text-white shadow-bevel"
+      >
+        Continuar!
+      </Link>
+    );
+  }
+
+  if (comecar.isError) {
+    return (
+      <span className="flex-1 text-center text-caption text-orbit-error-l" title={(comecar.error as ApiError).message}>
+        {(comecar.error as ApiError).message ?? 'Não foi possível começar.'}
+      </span>
+    );
+  }
 
   return (
-    <Link
-      to={continuando ? ROUTES.player.gameplay(teste.id) : ROUTES.player.tutorial(teste.id)}
-      className={cn(
-        'flex h-9 flex-1 items-center justify-center rounded-lg text-button text-white shadow-bevel',
-        continuando ? 'bg-orbit-flame' : 'bg-orbit-action-wide',
-      )}
+    <button
+      type="button"
+      disabled={comecar.isPending}
+      onClick={() =>
+        comecar.mutate(teste.id, { onSuccess: () => navigate(ROUTES.player.tutorial(teste.id)) })
+      }
+      className="flex h-9 flex-1 items-center justify-center rounded-lg bg-orbit-action-wide text-button text-white shadow-bevel disabled:opacity-60"
     >
-      {continuando ? 'Continuar!' : 'Começar!'}
-    </Link>
+      {comecar.isPending ? 'Reservando...' : 'Começar!'}
+    </button>
   );
 }
 

@@ -10,6 +10,8 @@ import { cn, isElectron } from '@/utils/helpers';
 
 // Cada tela em seu proprio chunk - o app abre sem baixar todas de uma vez.
 const LoginPage = lazy(() => import('@/pages/login'));
+const CadastroPage = lazy(() => import('@/pages/cadastro'));
+const RedefinirSenhaPage = lazy(() => import('@/pages/redefinir-senha'));
 
 const StudioHomePage = lazy(() => import('@/pages/studio/index'));
 const StudioGamesPage = lazy(() => import('@/pages/studio/games'));
@@ -83,6 +85,8 @@ export default function App() {
             <Routes>
           <Route path="/" element={<RootRedirect />} />
           <Route path={ROUTES.login} element={<LoginPage />} />
+          <Route path={ROUTES.register} element={<CadastroPage />} />
+          <Route path={ROUTES.resetPassword} element={<RedefinirSenhaPage />} />
 
           {/* ---------------------------- Estúdio ---------------------------- */}
           <Route element={<MainLayout allow={['STUDIO']} />}>

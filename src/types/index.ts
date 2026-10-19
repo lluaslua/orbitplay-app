@@ -5,6 +5,9 @@ export * from './player';
 export * from './report';
 export * from './community';
 export * from './access';
+export * from './build';
+export * from './payment';
+export * from './gameplay';
 
 /** Envelope usado por toda a camada mock - espelha o formato previsto da API real. */
 export interface ApiResponse<T> {

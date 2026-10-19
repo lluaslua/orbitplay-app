@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '@/stores/authStore';
 import { queryClient } from '@/lib/queryClient';
 import { ROUTES } from '@/utils/constants';
-import type { LoginCredentials, UserRole } from '@/types';
+import type { LoginCredentials, RegisterPayload, UserRole } from '@/types';
 
 /**
  * Ponte entre o authStore e a navegacao.
@@ -17,6 +17,8 @@ export function useAuth() {
   const error = useAuthStore((state) => state.error);
   const remember = useAuthStore((state) => state.remember);
   const loginAction = useAuthStore((state) => state.login);
+  const registerAction = useAuthStore((state) => state.register);
+  const resetPassword = useAuthStore((state) => state.resetPassword);
   const logoutAction = useAuthStore((state) => state.logout);
   const recoverPassword = useAuthStore((state) => state.recoverPassword);
   const clearError = useAuthStore((state) => state.clearError);
@@ -32,6 +34,15 @@ export function useAuth() {
       return loggedUser;
     },
     [loginAction, navigate, homeFor],
+  );
+
+  const register = useCallback(
+    async (payload: RegisterPayload) => {
+      const novoUsuario = await registerAction(payload);
+      navigate(homeFor(novoUsuario.role), { replace: true });
+      return novoUsuario;
+    },
+    [registerAction, navigate, homeFor],
   );
 
   const logout = useCallback(() => {
@@ -51,8 +62,10 @@ export function useAuth() {
     isLoading: status === 'loading',
     role: user?.role ?? null,
     login,
+    register,
     logout,
     recoverPassword,
+    resetPassword,
     clearError,
     homeFor,
   };

@@ -1,7 +1,10 @@
-import { expect, it } from 'vitest';
+import { beforeEach, expect, it } from 'vitest';
 import { fireEvent, screen } from '@testing-library/react';
 import StudioAcessosPage from '@/pages/studio/acessos';
-import { renderizarComProvedores } from '@/test/provedores';
+import { entrarComo, renderizarComProvedores } from '@/test/provedores';
+
+// As rotas de acessos só respondem ao estúdio.
+beforeEach(() => entrarComo('STUDIO'));
 
 async function abrirTela() {
   renderizarComProvedores(<StudioAcessosPage />);
@@ -20,7 +23,8 @@ it('filtra os usuários pela busca', async () => {
 it('troca para a aba Grupos e muda o CTA', async () => {
   await abrirTela();
 
-  fireEvent.click(screen.getByRole('button', { name: 'Grupos' }));
+  // O Tabs do Radix troca de aba no mousedown, não no click.
+  fireEvent.mouseDown(screen.getByRole('tab', { name: 'Grupos' }));
 
   expect(screen.queryByRole('button', { name: 'Novo grupo' })).not.toBeNull();
   expect(screen.queryByText('Participantes')).not.toBeNull();

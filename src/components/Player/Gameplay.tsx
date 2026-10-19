@@ -1,5 +1,8 @@
 import { useEffect, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { Navigate, useNavigate, useParams } from 'react-router-dom';
+import { useBuildDoTeste, useEventosDaSessao } from '@/hooks/usePlayer';
+import { useSessaoStore } from '@/stores/sessaoStore';
+import type { SessionEventType } from '@/types';
 import { ROUTES } from '@/utils/constants';
 import { cn, formatDuration } from '@/utils/helpers';
 
@@ -12,6 +15,10 @@ import { cn, formatDuration } from '@/utils/helpers';
  *
  * O painel pode ser fechado pelo ×, mas a tarja "Recording..." fica — é o que
  * garante que o jogador saiba que a sessão continua sendo gravada.
+ *
+ * O cronômetro é o da sessão começada no "Iniciar Jogo!" do tutorial: recarregar
+ * não zera. Ligar ou desligar microfone e webcam vira evento da sessão, com o
+ * segundo em que aconteceu, e "Finalizar teste" fecha a sessão antes da avaliação.
  */
 export function Gameplay() {
   const { testId } = useParams<{ testId: string }>();
@@ -20,12 +27,44 @@ export function Gameplay() {
   const [painelAberto, setPainelAberto] = useState(true);
   const [microfone, setMicrofone] = useState(true);
   const [webcam, setWebcam] = useState(true);
-  const [segundos, setSegundos] = useState(0);
+  const sessao = useSessaoStore();
+  const build = useBuildDoTeste(testId);
+  const eventos = useEventosDaSessao();
+  const [segundos, setSegundos] = useState(() => sessao.segundos());
 
   useEffect(() => {
-    const timer = window.setInterval(() => setSegundos((s) => s + 1), 1000);
+    const timer = window.setInterval(() => setSegundos(useSessaoStore.getState().segundos()), 1000);
     return () => window.clearInterval(timer);
   }, []);
+
+  // Teste sem build não tem tela de jogo: vai direto às perguntas.
+  if (build.isError && testId) return <Navigate to={ROUTES.player.summary(testId)} replace />;
+  if (build.isLoading) return null;
+
+  /** Registra na sessão o que o jogador ligou ou desligou, no segundo em que fez. */
+  function registrar(type: SessionEventType, label: string) {
+    if (!sessao.participationId || sessao.testId !== testId) return;
+    eventos.mutate({
+      participationId: sessao.participationId,
+      events: [{ atSecond: sessao.segundos(), type, label }],
+    });
+  }
+
+  function alternarMicrofone() {
+    registrar(microfone ? 'MIC_OFF' : 'MIC_ON', microfone ? 'Microfone desligado' : 'Microfone ligado');
+    setMicrofone((v) => !v);
+  }
+
+  function alternarWebcam() {
+    registrar(webcam ? 'CAM_OFF' : 'CAM_ON', webcam ? 'Webcam desligada' : 'Webcam ligada');
+    setWebcam((v) => !v);
+  }
+
+  function finalizar() {
+    if (!testId) return;
+    sessao.encerrar();
+    navigate(ROUTES.player.summary(testId));
+  }
 
   /*
    * `fixed` abaixo da barra de título (40px): aqui a tela é a janela do jogo,
@@ -73,7 +112,7 @@ export function Gameplay() {
       <div className="absolute bottom-[35px] left-0 flex items-center gap-2 rounded-br-[99px] rounded-tr-[99px] bg-orbit-bg/50 px-4 py-2 backdrop-blur-[4px]">
         <button
           type="button"
-          onClick={() => testId && navigate(ROUTES.player.summary(testId))}
+          onClick={finalizar}
           className="flex items-center gap-2 rounded-[99px] border border-white p-1 text-button text-white"
         >
           Finalizar teste
@@ -82,7 +121,7 @@ export function Gameplay() {
 
         <button
           type="button"
-          onClick={() => setMicrofone((v) => !v)}
+          onClick={alternarMicrofone}
           aria-pressed={microfone}
           aria-label={microfone ? 'Desligar microfone' : 'Ligar microfone'}
           className={cn('shrink-0', !microfone && 'opacity-40')}
@@ -92,7 +131,7 @@ export function Gameplay() {
 
         <button
           type="button"
-          onClick={() => setWebcam((v) => !v)}
+          onClick={alternarWebcam}
           aria-pressed={webcam}
           aria-label={webcam ? 'Desligar webcam' : 'Ligar webcam'}
           className={cn('shrink-0', !webcam && 'opacity-40')}

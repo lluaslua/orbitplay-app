@@ -10,6 +10,8 @@
         "status": "ACTIVE",
         "createdAt": "2026-01-15T10:00:00.000Z",
         "studio": {
+          "studioId": "studio-001",
+          "permission": "MANAGE",
           "organization": "Blackstar games",
           "cnpj": "12.345.678/0001-90",
           "website": "https://blackstargames.gg",

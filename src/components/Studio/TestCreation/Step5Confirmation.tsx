@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { Eye, Home } from 'lucide-react';
 import { ResumoCompra } from '@/components/Studio/TestCreation/ResumoCompra';
+import { useTestStore } from '@/stores/testStore';
 import { NEXT_STEPS_AFTER_PAYMENT, ROUTES } from '@/utils/constants';
 import { Button } from '@/components/UI';
 
@@ -11,6 +12,8 @@ import { Button } from '@/components/UI';
  * compra" da etapa 4 reaparece aqui, agora só de leitura.
  */
 export function Step5Confirmation() {
+  const testId = useTestStore((state) => state.testIdCriado);
+
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-col items-center gap-2 text-center">
@@ -69,10 +72,19 @@ export function Step5Confirmation() {
           <Eye className="size-5" />
         </Link>
 
-        <Button variant="nightfall" disabled title="Ainda não disponível">
-          Ir para o teste
-          <Home className="size-5" />
-        </Button>
+        {testId ? (
+          <Button variant="nightfall" asChild>
+            <Link to={ROUTES.studio.report(testId)}>
+              Ir para o teste
+              <Home className="size-5" />
+            </Link>
+          </Button>
+        ) : (
+          <Button variant="nightfall" disabled>
+            Ir para o teste
+            <Home className="size-5" />
+          </Button>
+        )}
       </div>
     </div>
   );

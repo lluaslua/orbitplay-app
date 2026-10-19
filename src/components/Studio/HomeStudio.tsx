@@ -36,7 +36,7 @@ import { cn, formatDate, formatNumber } from '@/utils/helpers';
 export function HomeStudio() {
   const studio = useStudioUser();
   const dashboard = useStudioDashboard();
-  const games = useGames(studio?.id);
+  const games = useGames(studio?.studio.studioId);
   const tests = useTests();
 
   if (dashboard.isError) {

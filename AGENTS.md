@@ -147,6 +147,7 @@ O que pode fazer:
 - ler o relatório do teste com insights de IA, métricas e a lista de sessões (`/studio/reports/:testId`)
 - abrir o relatório de telemetria do plug-in (`/studio/reports/:testId/plugin`)
 - abrir a sessão de um tester específico (`/studio/reports/:testId/sessions/:sessionId`)
+- gerenciar acessos do estúdio pelo item "Gerenciamento de acessos" do menu do avatar (`/studio/access`): usuários, grupos, convites, permissões, suspensão e exclusão
 
 O que não pode: entrar em rota `/player`, jogar teste, criar jogo (tela removida) e exportar de fato, porque os botões de exportar dependem de backend e estão inertes de propósito.
 
@@ -166,7 +167,7 @@ O que pode fazer:
 - responder a avaliação e enviar (`useSubmitSession`, `POST /player/tests/:testId/submit`): o mock calcula XP pela qualidade do feedback e pelos bugs reportados, sobe o nível, soma a recompensa em `pendingBalance` e desbloqueia conquistas
 - ver o resultado da participação (`/player/test/:testId/result`)
 
-O que não pode: entrar em rota `/studio`, ver relatório ou sessão de outro tester, e sacar saldo, porque a recompensa fica `PENDING` esperando aprovação que não tem tela.
+O que não pode: entrar em rota `/studio`, ver relatório ou sessão de outro tester, e sacar saldo, porque a recompensa fica `PENDING` esperando aprovação que não tem tela. Gerenciamento de acessos é só do estúdio nas três camadas: o menu do avatar não mostra o item, a rota volta para `/player` e as rotas `/studio/access` respondem 403 (`soEstudio` em `mocks/routes.ts`).
 
 Pendência conhecida: `useStartTest` e `useSubmitSession` existem e a rota mockada responde, mas nenhuma tela os chama ainda. O tutorial e o resumo hoje só navegam, e o resultado vem de `/player/session-outcome`, que é fixture. Ligar o fluxo de verdade é trocar essa navegação pelas mutations, sem inventar rota nova.
 

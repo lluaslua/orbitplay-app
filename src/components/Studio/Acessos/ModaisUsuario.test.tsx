@@ -1,10 +1,13 @@
-import { expect, it, vi } from 'vitest';
+import { beforeEach, expect, it, vi } from 'vitest';
 import { fireEvent, screen, waitFor } from '@testing-library/react';
 import { get } from '@/lib/api';
 import { users } from '@/mocks/fixtures/acessos.json';
-import { renderizarComProvedores } from '@/test/provedores';
+import { entrarComo, renderizarComProvedores } from '@/test/provedores';
 import type { AccessOverview, AccessUser } from '@/types';
 import { ConfirmacaoUsuarioModal, NovoUsuarioModal, RedefinirSenhaModal } from './ModaisUsuario';
+
+// As rotas de acessos só respondem ao estúdio.
+beforeEach(() => entrarComo('STUDIO'));
 
 const usuario = (id: string) =>
   ({ ...users.find((item) => item.id === id), groups: [] }) as AccessUser;

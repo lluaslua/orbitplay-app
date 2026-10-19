@@ -126,6 +126,41 @@ export interface ReportInsight {
   category: string;
   categoryTone: InsightTone;
   text: string;
+  /** Sessão de onde o insight saiu, quando saiu de uma. */
+  sessionId?: string | null;
+  /** "Gravação - 05:15". */
+  at?: string | null;
+}
+
+/**
+ * Aba "Todas as Avaliações" do relatório (Figma `326:6452`): cada pergunta do
+ * formulário com o resumo das respostas.
+ */
+export interface ReportAnswers {
+  testId: string;
+  totalSessions: number;
+  /** "Tempo médio da avaliação", em segundos. */
+  avgFormSeconds: number;
+  /** "Taxa de desistência", 0 a 1: começou e não enviou. */
+  dropoutRate: number;
+  questions: ReportQuestionSummary[];
+}
+
+export interface ReportQuestionSummary {
+  id: string;
+  number: string;
+  label: string;
+  type: string;
+  answers: number;
+  /** Escalas: média e distribuição por valor (índice 0 = menor valor). */
+  average?: number;
+  distribution?: { label: string; count: number }[];
+  /** Escolhas: quantas vezes cada opção foi marcada. */
+  options?: { label: string; count: number }[];
+  /** Texto: as respostas, paginadas por `?questionId=&page=`. */
+  texts?: { sessionId: string; text: string; date: string }[];
+  /** Total de respostas em texto, para o rodapé de paginação. */
+  totalTexts?: number;
 }
 
 /**

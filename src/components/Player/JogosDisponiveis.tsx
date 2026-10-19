@@ -22,10 +22,8 @@ export function JogosDisponiveis() {
   const { data, isLoading, isError, refetch } = useGames();
   const [busca, setBusca] = useState('');
 
-  /** O estúdio não testa o próprio jogo: o catálogo é o que vem de fora. */
-  const catalogo = (data ?? []).filter((jogo) => jogo.studioId !== 'studio-001');
-
-  const filtrados = catalogo.filter(
+  // A API já devolve ao tester só os jogos ativos, de todos os estúdios.
+  const filtrados = (data ?? []).filter(
     (jogo) => matchesSearch(jogo.name, busca) || matchesSearch(jogo.studioName, busca),
   );
 

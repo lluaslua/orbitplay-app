@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { get, post } from '@/lib/api';
+import { comChave, get, post } from '@/lib/api';
 import { queryKeys } from '@/lib/queryClient';
-import type { Playtest, TestDraft } from '@/types';
+import type { PaymentMethod, PaymentOrder, Playtest, TestDraft } from '@/types';
 
 export function useTests(gameId?: string) {
   return useQuery({
@@ -18,34 +18,53 @@ export function useTest(testId: string | undefined) {
   });
 }
 
-/** Publica o rascunho do stepper (TELAS 06-10) como um teste ativo. */
+/**
+ * Cria o teste do rascunho do stepper (TELAS 06-10). Ele nasce DRAFT na API e
+ * só vira ACTIVE depois do pagamento (`usePagarTeste`). Título vazio a API
+ * completa com "<modelo> — <jogo>"; o preço ela recalcula.
+ */
 export function useCreateTest() {
+  return useMutation({
+    mutationFn: ({ draft, chave }: { draft: TestDraft; chave: string }) =>
+      post<Playtest>(
+        '/tests',
+        {
+          gameId: draft.gameId,
+          model: draft.model,
+          title: draft.title,
+          instructions: draft.instructions,
+          questions: draft.questions,
+          requiresRecording: draft.requiresRecording,
+          requiresMicrophone: draft.requiresMicrophone,
+          requiresWebcam: draft.requiresWebcam,
+          requiresController: draft.requiresController,
+          audience: draft.audience,
+          budget: draft.budget,
+          buildId: draft.buildId,
+        },
+        comChave(`${chave}:teste`),
+      ),
+  });
+}
+
+/**
+ * "Pagar e finalizar!": o checkout do teste. No sandbox da API o pedido sai
+ * pago na hora e o teste é publicado; pedir de novo devolve o mesmo pedido.
+ */
+export function usePagarTeste() {
   const client = useQueryClient();
 
   return useMutation({
-    mutationFn: (draft: TestDraft) =>
-      post<Playtest>('/tests', {
-        gameId: draft.gameId,
-        model: draft.model,
-        title: draft.title,
-        instructions: draft.instructions,
-        questions: draft.questions,
-        requiresRecording: draft.requiresRecording,
-        requiresMicrophone: draft.requiresMicrophone,
-        requiresWebcam: draft.requiresWebcam,
-        audience: draft.audience,
-        budget: draft.budget,
-        buildFileName: draft.buildFileName,
-        buildSizeMb: draft.buildSizeMb,
-      }),
-    onSuccess: (test) => {
+    mutationFn: ({ testId, method, chave }: { testId: string; method: PaymentMethod; chave: string }) =>
+      post<PaymentOrder>(`/tests/${testId}/checkout`, { method }, comChave(`${chave}:pagamento`)),
+    onSuccess: (pedido) => {
       client.invalidateQueries({ queryKey: ['tests'] });
       client.invalidateQueries({ queryKey: ['games'] });
       client.invalidateQueries({ queryKey: queryKeys.studioDashboard });
       client.invalidateQueries({ queryKey: queryKeys.playerCatalog });
-      // A primeira build de um jogo abre o chat da comunidade dele.
+      // O primeiro teste publicado de um jogo abre o chat da comunidade dele.
       client.invalidateQueries({ queryKey: ['community'] });
-      client.setQueryData(queryKeys.test(test.id), test);
+      client.invalidateQueries({ queryKey: queryKeys.test(pedido.testId) });
     },
   });
 }

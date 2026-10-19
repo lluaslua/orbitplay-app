@@ -16,6 +16,17 @@ export interface OrbitApi {
     /** `login` = cartão fixo de 926×619; `app` = janela cheia e redimensionável. */
     setMode: (mode: 'login' | 'app') => Promise<void>;
   };
+  builds: {
+    baixar: (pedido: {
+      testId: string;
+      url: string;
+      token: string | null;
+      fileName: string;
+      sha256: string | null;
+    }) => Promise<string>;
+    aoProgredir: (callback: (progresso: { testId: string; fracao: number }) => void) => () => void;
+    mostrar: (caminho: string) => Promise<void>;
+  };
   update: {
     check: () => Promise<{ version: string; file: string } | null>;
     install: (file: string) => Promise<string | null>;

@@ -1,10 +1,13 @@
-import { expect, it, vi } from 'vitest';
+import { beforeEach, expect, it, vi } from 'vitest';
 import { fireEvent, screen, waitFor } from '@testing-library/react';
 import { get } from '@/lib/api';
 import { users } from '@/mocks/fixtures/acessos.json';
-import { renderizarComProvedores } from '@/test/provedores';
+import { entrarComo, renderizarComProvedores } from '@/test/provedores';
 import type { AccessGroup, AccessOverview, AccessUser } from '@/types';
 import { AdicionarMembrosModal, NovoGrupoModal, RenomearGrupoModal } from './ModaisGrupo';
+
+// As rotas de acessos só respondem ao estúdio.
+beforeEach(() => entrarComo('STUDIO'));
 
 const usuarios = users.map((usuario) => ({ ...usuario, groups: [] })) as AccessUser[];
 

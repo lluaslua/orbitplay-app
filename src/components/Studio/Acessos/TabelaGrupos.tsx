@@ -1,6 +1,5 @@
 import { useState } from 'react';
-import { CaseSensitive, Eraser, Trash2, Users } from 'lucide-react';
-import { Table, TableHeader, Tag, UserAvatar } from '@/components/UI';
+import { Table, TableHeader, TableRow, Tag, UserAvatar } from '@/components/UI';
 import type { AccessGroup, AccessUser } from '@/types';
 import { USER_STATUS_LABELS } from '@/utils/constants';
 import { cn } from '@/utils/helpers';
@@ -29,7 +28,7 @@ export function TabelaGrupos({ grupos, usuarios }: { grupos: AccessGroup[]; usua
 
         <div className="py-2">
           {grupos.map((grupo) => (
-            <div key={grupo.id} className="flex h-16 items-center gap-6 px-6 text-graphic text-white">
+            <TableRow key={grupo.id} className="h-16 py-0 text-graphic text-white">
               <span className="flex min-w-0 flex-1 items-center gap-2">
                 <span className="grid size-6 shrink-0 place-items-center">
                   <img src="./icons/figma/acessos/grupo.svg" alt="" />
@@ -60,29 +59,29 @@ export function TabelaGrupos({ grupos, usuarios }: { grupos: AccessGroup[]; usua
                   acoes={[
                     {
                       rotulo: 'Gerenciar membros',
-                      icone: <Users />,
+                      icone: './icons/figma/acessos/menu-membros.svg',
                       onSelect: () => setPedido({ tipo: 'membros', grupo }),
                     },
                     {
                       rotulo: 'Renomear',
-                      icone: <CaseSensitive />,
+                      icone: './icons/figma/acessos/menu-renomear.svg',
                       onSelect: () => setPedido({ tipo: 'renomear', grupo }),
                     },
                     {
                       rotulo: 'Remover participantes',
-                      icone: <Eraser />,
+                      icone: './icons/figma/acessos/menu-limpar.svg',
                       onSelect: () => setPedido({ tipo: 'limpar', grupo }),
                     },
                     {
                       rotulo: 'Excluir grupo',
-                      icone: <Trash2 />,
+                      icone: './icons/figma/acessos/menu-excluir.svg',
                       perigo: true,
                       onSelect: () => setPedido({ tipo: 'excluir', grupo }),
                     },
                   ]}
                 />
               </span>
-            </div>
+            </TableRow>
           ))}
         </div>
 

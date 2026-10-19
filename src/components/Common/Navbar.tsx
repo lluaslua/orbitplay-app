@@ -15,9 +15,9 @@ import {
 import type { LucideIcon } from 'lucide-react';
 import {
   DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
   DropdownMenuTrigger,
+  ItemMenuCartao,
+  MenuCartao,
   UserAvatar,
 } from '@/components/UI';
 import { useAuth } from '@/hooks/useAuth';
@@ -83,17 +83,6 @@ const itemBase =
  */
 function Rotulo({ children }: { children: React.ReactNode }) {
   return <span className="hidden folgado:inline">{children}</span>;
-}
-
-const itemPerfil =
-  'gap-4 whitespace-nowrap px-4 py-3 text-[18px] leading-6 text-orbit-dark focus:bg-orbit-light focus:text-orbit-dark';
-
-function IconePerfil({ src }: { src: string }) {
-  return (
-    <span className="grid size-6 shrink-0 place-items-center">
-      <img src={src} alt="" />
-    </span>
-  );
 }
 
 export function Navbar() {
@@ -212,25 +201,21 @@ export function Navbar() {
             </button>
           </DropdownMenuTrigger>
 
-          <DropdownMenuContent
-            align="end"
-            className="w-[606px] rounded-xl border-orbit-light bg-white p-2"
-          >
+          {/* Figma `1273:4354`: 557px. "Gerenciamento de acessos" é só do estúdio. */}
+          <MenuCartao align="end" className="w-[557px]">
             {studio && (
-              <DropdownMenuItem className={itemPerfil} onSelect={() => navigate(ROUTES.studio.access)}>
-                <IconePerfil src="./icons/figma/perfil-acessos.svg" />
+              <ItemMenuCartao
+                icone="./icons/figma/perfil-acessos.svg"
+                onSelect={() => navigate(ROUTES.studio.access)}
+              >
                 Gerenciamento de acessos
-              </DropdownMenuItem>
+              </ItemMenuCartao>
             )}
-            <DropdownMenuItem className={itemPerfil}>
-              <IconePerfil src="./icons/figma/perfil-conta.svg" />
-              Minha conta
-            </DropdownMenuItem>
-            <DropdownMenuItem className={itemPerfil} onSelect={() => logout()}>
-              <IconePerfil src="./icons/figma/perfil-sair.svg" />
+            <ItemMenuCartao icone="./icons/figma/perfil-conta.svg">Minha conta</ItemMenuCartao>
+            <ItemMenuCartao icone="./icons/figma/perfil-sair.svg" onSelect={() => logout()}>
               Sair
-            </DropdownMenuItem>
-          </DropdownMenuContent>
+            </ItemMenuCartao>
+          </MenuCartao>
         </DropdownMenu>
       </div>
     </nav>

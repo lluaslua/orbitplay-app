@@ -1,6 +1,15 @@
+import type { ArchetypeId, PlayerTypeId, TestLocation } from './test';
+
+/**
+ * Os dois perfis do app. A API também tem OWNER e ADMIN (a administração da
+ * plataforma), que não têm tela aqui: o login recusa essas contas.
+ */
 export type UserRole = 'STUDIO' | 'PLAYER';
 
 export type UserStatus = 'ACTIVE' | 'INACTIVE' | 'PENDING';
+
+/** Dentro da organização: VIEW lê, EDIT mexe em jogos, testes e builds, MANAGE também paga. */
+export type StudioPermission = 'MANAGE' | 'EDIT' | 'VIEW';
 
 export interface BaseUser {
   id: string;
@@ -9,10 +18,15 @@ export interface BaseUser {
   role: UserRole;
   status: UserStatus;
   avatarUrl?: string;
+  /** Idioma da interface — o seletor "PT" da navbar. */
+  locale?: string;
   createdAt: string;
 }
 
 export interface StudioProfile {
+  /** A organização — é para ela que `Game.studioId` aponta. Não é o id da conta. */
+  studioId: string;
+  permission: StudioPermission;
   organization: string;
   cnpj?: string;
   website?: string;
@@ -37,6 +51,13 @@ export interface PlayerProfile {
   achievementsCount: number;
   /** "Horas jogadas". */
   hoursPlayed: number;
+  /** Elegibilidade para o público dos testes. */
+  location?: TestLocation;
+  playerType?: PlayerTypeId;
+  archetype?: ArchetypeId;
+  birthDate?: string;
+  /** Já viu o tutorial do teste: o modal final mostra "Rever tutorial" (Figma `224:7540`). */
+  tutorialSeen?: boolean;
 }
 
 export interface StudioUser extends BaseUser {
@@ -62,6 +83,32 @@ export interface AuthSession {
   token: string;
   user: AuthUser;
   expiresAt: string;
+}
+
+/**
+ * "Criar uma conta grátis" no login — a tela de cadastro (provisória, sem frame
+ * no Figma). `POST /auth/register` devolve a mesma sessão do login.
+ */
+export interface RegisterPayload {
+  role: UserRole;
+  name: string;
+  email: string;
+  password: string;
+  /** Estúdio: nome da organização (obrigatório), CNPJ e site. */
+  organization?: string;
+  cnpj?: string;
+  website?: string;
+  /** Tester: dados de elegibilidade para o público dos testes. */
+  birthDate?: string;
+  location?: TestLocation;
+  playerType?: PlayerTypeId;
+  archetype?: ArchetypeId;
+}
+
+/** Segundo passo da recuperação e do convite: o token chega pelo link do e-mail. */
+export interface ResetPasswordPayload {
+  token: string;
+  password: string;
 }
 
 /** Grupo do estúdio na tabela "Responsáveis e permissões" de Novo jogo. */

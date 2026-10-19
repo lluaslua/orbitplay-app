@@ -1,9 +1,12 @@
-import { expect, it } from 'vitest';
+import { beforeEach, expect, it } from 'vitest';
 import { fireEvent, screen } from '@testing-library/react';
 import { groups } from '@/mocks/fixtures/acessos.json';
-import { renderizarComProvedores } from '@/test/provedores';
+import { entrarComo, renderizarComProvedores } from '@/test/provedores';
 import type { AccessGroup } from '@/types';
 import { TabelaGrupos } from './TabelaGrupos';
+
+// As rotas de acessos só respondem ao estúdio.
+beforeEach(() => entrarComo('STUDIO'));
 
 const grupos = groups.map(({ id, name }) => ({ id, name, status: 'ACTIVE', members: [] })) as AccessGroup[];
 

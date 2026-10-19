@@ -18,7 +18,7 @@ import { ROUTES } from '@/utils/constants';
  */
 export function MeusJogos() {
   const studio = useStudioUser();
-  const { data, isLoading, isError, refetch } = useGames(studio?.id);
+  const { data, isLoading, isError, refetch } = useGames(studio?.studio.studioId);
 
   return (
     <div className="flex flex-col gap-6">

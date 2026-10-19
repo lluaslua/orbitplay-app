@@ -1,3 +1,5 @@
+import type { FormQuestion } from './test';
+
 export type ParticipationStatus =
   | 'AVAILABLE'
   | 'IN_PROGRESS'
@@ -25,7 +27,17 @@ export interface AvailableTest {
   expiresAt: string;
   status: ParticipationStatus;
   requiresRecording: boolean;
+  /** Só para quem tem o tier ELITE. */
+  eliteOnly: boolean;
+  /** Por que está indisponível, quando está: sem vagas, fora do prazo, dispositivo. */
+  unavailableReason?: UnavailableReason;
 }
+
+/**
+ * Motivo do UNAVAILABLE. `DEVICE_INCOMPATIBLE` é o "Indisponível para seu
+ * dispositivo" (Figma `199:1291`): a build não roda no sistema do app.
+ */
+export type UnavailableReason = 'NO_SLOTS' | 'CLOSED' | 'DEVICE_INCOMPATIBLE' | 'ELITE_ONLY';
 
 export interface Participation {
   id: string;
@@ -79,12 +91,17 @@ export interface SessionOutcome {
  */
 export interface PlayerSessionReview {
   id: string;
+  /** IN_PROGRESS ainda aceita o envio; depois dele, o app vai direto para a conclusão. */
+  status: ParticipationStatus;
+  testId: string;
   gameId: string;
   testName: string;
   testKind: string;
   rewardCents: number;
   testsDone: number;
   transcript: { at: string; text: string }[];
+  /** O formulário que o estúdio montou na etapa 2 — o que o jogador responde. */
+  questions: FormQuestion[];
 }
 
 /**
@@ -112,6 +129,9 @@ export interface PlayerGameTest {
   /** Recompensa em destaque, com seta — o teste paga acima da média. */
   boosted?: boolean;
   action: PlayerTestAction;
+  unavailableReason?: UnavailableReason;
+  eliteOnly: boolean;
+  requiresController: boolean;
 }
 
 /** Uma pista do teste em andamento, com progresso e recompensa. */
@@ -148,7 +168,7 @@ export interface PlayerDashboard {
     genres: { label: string; value: number }[];
   };
   /** "Meus testes" — mesmo formato das linhas do benchmark do estúdio. */
-  myTests: { id: string; name: string; progress: number; rewardCents: number }[];
+  myTests: { id: string; name: string; progress: number; rewardCents: number; gameId: string; testId: string; inProgress: boolean }[];
 }
 
 /** Payload enviado ao concluir a sessao (TELA 18 -> TELA 19). */
@@ -157,6 +177,8 @@ export interface SessionSubmission {
   answers: Record<string, string | number | string[] | boolean>;
   bugsReported: number;
   durationSeconds: number;
+  /** Tempo de preenchimento do formulário, em segundos. */
+  formSeconds?: number;
 }
 
 export interface SessionResult {
@@ -180,6 +202,8 @@ export interface SessionResult {
  */
 export interface PlayerGameHistory {
   id: string;
+  /** Leva à tela de resultado da participação. */
+  testId: string;
   name: string;
   kind: string;
   kindTone: 'topaz' | 'amethyst' | 'sapphire';
@@ -203,4 +227,6 @@ export interface GameAchievement {
   icon: string;
   /** Bloqueada: ladrilho escuro com cadeado, em vez do degradê. */
   locked: boolean;
+  /** Nas conquistas de contagem: "Piloto Frequente 5/10" (Figma `287:5085`). */
+  progress?: { current: number; target: number };
 }

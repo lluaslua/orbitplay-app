@@ -7,8 +7,8 @@ function abrir(onSelect: () => void = () => undefined) {
     <MenuAcoes
       rotulo="Ações de teste"
       acoes={[
-        { rotulo: 'Editar perfil', icone: <span /> },
-        { rotulo: 'Excluir', icone: <span />, perigo: true, onSelect },
+        { rotulo: 'Editar perfil', icone: './icons/figma/perfil-conta.svg' },
+        { rotulo: 'Excluir', icone: './icons/figma/acessos/menu-excluir.svg', perigo: true, onSelect },
       ]}
     />,
   );

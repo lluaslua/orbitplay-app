@@ -114,6 +114,7 @@ function toAvailableTest(testId: string): AvailableTest | null {
     thumbnailUrl: test.gameThumbnailUrl,
     genres: game?.genres ?? [],
     modelLabel: TEST_MODEL_LABELS[test.model],
+    eliteOnly: false,
     estimatedMinutes: test.estimatedMinutes,
     rewardCents: test.budget.rewardPerSessionCents,
     slotsTotal: test.budget.slots,
@@ -169,6 +170,21 @@ function requester(headers: Record<string, string>): AuthUser | undefined {
   } catch {
     return undefined;
   }
+}
+
+/**
+ * Porta das rotas de "Gerenciamento de acessos": só o estúdio entra. O tester
+ * recebe 403 mesmo chamando a API direto, sem passar pela tela.
+ */
+function soEstudio(resolve: MockRoute['resolve']): MockRoute['resolve'] {
+  return (ctx) => {
+    const user = requester(ctx.headers);
+    if (!user) return fail(401, { message: 'Sua sessão expirou. Entre de novo.' });
+    if (user.role !== 'STUDIO') {
+      return fail(403, { message: 'Só o estúdio gerencia acessos.', code: 'FORBIDDEN' });
+    }
+    return resolve(ctx);
+  };
 }
 
 /**
@@ -293,12 +309,12 @@ export const routes: MockRoute[] = [
   {
     method: 'GET',
     path: '/studio/access',
-    resolve: () => ok(listarAcessos()),
+    resolve: soEstudio(() => ok(listarAcessos())),
   },
   {
     method: 'POST',
     path: '/studio/access/users',
-    resolve: ({ body }) => {
+    resolve: soEstudio(({ body }) => {
       const email = String(body?.email ?? '').trim();
       if (!EMAIL.test(email)) return fail(400, { message: 'Informe um e-mail válido.' });
 
@@ -306,31 +322,31 @@ export const routes: MockRoute[] = [
       return usuario
         ? created(usuario)
         : fail(409, { message: 'Este e-mail já tem acesso ao estúdio.', code: 'EMAIL_TAKEN' });
-    },
+    }),
   },
   {
     method: 'PATCH',
     path: '/studio/access/users/:id',
-    resolve: ({ params, body }) => {
+    resolve: soEstudio(({ params, body }) => {
       const usuario = atualizarUsuario(params.id, body as AccessUserPatch);
       return usuario ? ok(usuario) : fail(404, { message: 'Usuário não encontrado.' });
-    },
+    }),
   },
   {
     method: 'POST',
     path: '/studio/access/users/:id/password',
-    resolve: ({ params, body }) => {
+    resolve: soEstudio(({ params, body }) => {
       if (!buscarUsuarioAcesso(params.id)) return fail(404, { message: 'Usuário não encontrado.' });
       if (!senhaValida(String(body?.password ?? ''))) {
         return fail(400, { message: 'A senha não atende aos requisitos.', code: 'WEAK_PASSWORD' });
       }
       return ok({ message: 'Senha atualizada.' });
-    },
+    }),
   },
   {
     method: 'DELETE',
     path: '/studio/access/users/:id',
-    resolve: ({ params }) => {
+    resolve: soEstudio(({ params }) => {
       const usuario = buscarUsuarioAcesso(params.id);
       if (!usuario) return fail(404, { message: 'Usuário não encontrado.' });
       if (usuario.admin) {
@@ -338,30 +354,31 @@ export const routes: MockRoute[] = [
       }
       excluirUsuario(params.id);
       return ok({ id: params.id });
-    },
+    }),
   },
   {
     method: 'POST',
     path: '/studio/access/groups',
-    resolve: ({ body }) => {
+    resolve: soEstudio(({ body }) => {
       const name = String(body?.name ?? '').trim();
       if (!name) return fail(400, { message: 'Informe o nome do grupo.' });
       return created(criarGrupo(name, (body?.memberIds as string[] | undefined) ?? []));
-    },
+    }),
   },
   {
     method: 'PATCH',
     path: '/studio/access/groups/:id',
-    resolve: ({ params, body }) => {
+    resolve: soEstudio(({ params, body }) => {
       const grupo = atualizarGrupo(params.id, body as AccessGroupPatch);
       return grupo ? ok(grupo) : fail(404, { message: 'Grupo não encontrado.' });
-    },
+    }),
   },
   {
     method: 'DELETE',
     path: '/studio/access/groups/:id',
-    resolve: ({ params }) =>
+    resolve: soEstudio(({ params }) =>
       excluirGrupo(params.id) ? ok({ id: params.id }) : fail(404, { message: 'Grupo não encontrado.' }),
+    ),
   },
 
   // -------------------------------------------------------------------------

@@ -1,6 +1,13 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import type { FormQuestion, PlaytestAudience, PlaytestBudget, TestDraft, TestModel } from '@/types';
+import type {
+  FormQuestion,
+  PlaytestAudience,
+  PlaytestBudget,
+  QuestionType,
+  TestDraft,
+  TestModel,
+} from '@/types';
 import { STORAGE_KEYS } from '@/utils/constants';
 import { uid } from '@/utils/helpers';
 
@@ -34,12 +41,35 @@ const emptyDraft: TestDraft = {
   requiresRecording: true,
   requiresMicrophone: false,
   requiresWebcam: false,
+  // O desenho abre o "Jogável com controle*" ligado.
+  requiresController: true,
+  buildId: null,
   buildFileName: null,
   buildSizeMb: null,
   buildVersion: '',
   audience: emptyAudience,
   budget: emptyBudget,
 };
+
+/** Tipos que não existem sem opções: a API recusa com menos de duas. */
+const TIPOS_COM_OPCOES: QuestionType[] = ['MULTIPLE_CHOICE', 'CHECKBOXES', 'DROPDOWN'];
+/** Grades: linhas em `options`, colunas em `columns`. */
+const TIPOS_GRADE: QuestionType[] = ['MULTIPLE_CHOICE_GRID', 'CHECKBOX_GRID'];
+
+const preenchidas = (lista: string[] | undefined) => (lista ?? []).filter((item) => item.trim()).length;
+
+/** A pergunta está pronta para publicar: rótulo, opções e, nas grades, linhas e colunas. */
+export function perguntaValida(pergunta: FormQuestion): boolean {
+  if (pergunta.label.trim().length < 5) return false;
+  if (TIPOS_COM_OPCOES.includes(pergunta.type)) return preenchidas(pergunta.options) >= 2;
+  if (TIPOS_GRADE.includes(pergunta.type)) {
+    return preenchidas(pergunta.options) >= 1 && preenchidas(pergunta.columns) >= 2;
+  }
+  return true;
+}
+
+/** Chave do rascunho para o `Idempotency-Key`: criar e pagar o mesmo teste não duplica. */
+const novaChave = () => uid('rascunho');
 
 /**
  * Fecha a conta da compra: `(base + perfil + impulso) × quantidade`.
@@ -64,6 +94,11 @@ interface TestState {
   maxStepReached: number;
   uploadProgress: number;
   uploadState: 'idle' | 'uploading' | 'validating' | 'done' | 'error';
+  /** A build enviada está VALID e combina com o modelo (plug-in) — decidido na etapa 3. */
+  buildValida: boolean;
+  /** O teste já criado na API: tentar pagar de novo não cria outro. */
+  testIdCriado: string | null;
+  chave: string;
 
   setStep: (step: number) => void;
   nextStep: () => void;
@@ -73,7 +108,9 @@ interface TestState {
   setModel: (model: TestModel) => void;
   setDetails: (patch: Partial<Pick<TestDraft, 'title' | 'instructions'>>) => void;
   setRecordingOptions: (
-    patch: Partial<Pick<TestDraft, 'requiresRecording' | 'requiresMicrophone' | 'requiresWebcam'>>,
+    patch: Partial<
+      Pick<TestDraft, 'requiresRecording' | 'requiresMicrophone' | 'requiresWebcam' | 'requiresController'>
+    >,
   ) => void;
 
   addQuestion: (question?: Partial<FormQuestion>) => void;
@@ -81,9 +118,11 @@ interface TestState {
   removeQuestion: (id: string) => void;
   moveQuestion: (id: string, direction: -1 | 1) => void;
 
-  setBuild: (file: { name: string; sizeMb: number; version?: string } | null) => void;
+  setBuild: (file: { id: string; name: string; sizeMb: number; version?: string } | null) => void;
   setUploadProgress: (progress: number) => void;
   setUploadState: (state: TestState['uploadState']) => void;
+  setBuildValida: (valida: boolean) => void;
+  setTestIdCriado: (testId: string | null) => void;
 
   setAudience: (patch: Partial<PlaytestAudience>) => void;
   setBudget: (patch: Partial<PlaytestBudget>) => void;
@@ -100,6 +139,9 @@ export const useTestStore = create<TestState>()(
       maxStepReached: 1,
       uploadProgress: 0,
       uploadState: 'idle',
+      buildValida: false,
+      testIdCriado: null,
+      chave: novaChave(),
 
       setStep: (step) =>
         set((state) => ({
@@ -115,9 +157,34 @@ export const useTestStore = create<TestState>()(
 
       previousStep: () => set((state) => ({ currentStep: Math.max(state.currentStep - 1, 1) })),
 
-      setGame: (gameId) => set((state) => ({ draft: { ...state.draft, gameId } })),
+      /*
+       * A build e o teste criado pertencem ao jogo: trocar de jogo começa um
+       * rascunho novo. Só preencher o jogo do rascunho vazio não apaga nada.
+       */
+      setGame: (gameId) =>
+        set((state) => {
+          if (!state.draft.gameId || state.draft.gameId === gameId) {
+            return { draft: { ...state.draft, gameId } };
+          }
+          return {
+            draft: { ...emptyDraft, budget: calculateBudget(emptyBudget), gameId },
+            currentStep: 1,
+            maxStepReached: 1,
+            uploadProgress: 0,
+            uploadState: 'idle',
+            buildValida: false,
+            testIdCriado: null,
+            chave: novaChave(),
+          };
+        }),
 
-      setModel: (model) => set((state) => ({ draft: { ...state.draft, model } })),
+      // O plug-in que a build precisa depende do modelo: trocar obriga a conferir a etapa 3 de novo.
+      setModel: (model) =>
+        set((state) => ({
+          draft: { ...state.draft, model },
+          buildValida: state.draft.model === model ? state.buildValida : false,
+          testIdCriado: null,
+        })),
 
       setDetails: (patch) => set((state) => ({ draft: { ...state.draft, ...patch } })),
 
@@ -176,14 +243,19 @@ export const useTestStore = create<TestState>()(
         set((state) => ({
           draft: {
             ...state.draft,
+            buildId: file?.id ?? null,
             buildFileName: file?.name ?? null,
             buildSizeMb: file?.sizeMb ?? null,
             buildVersion: file?.version ?? state.draft.buildVersion,
           },
+          buildValida: false,
+          testIdCriado: null,
         })),
 
       setUploadProgress: (uploadProgress) => set({ uploadProgress }),
       setUploadState: (uploadState) => set({ uploadState }),
+      setBuildValida: (buildValida) => set({ buildValida }),
+      setTestIdCriado: (testIdCriado) => set({ testIdCriado }),
 
       setAudience: (patch) =>
         set((state) => ({
@@ -207,12 +279,10 @@ export const useTestStore = create<TestState>()(
             return !!draft.model;
           // A etapa 2 desenha só as perguntas — título e instruções não estão lá.
           case 2:
-            return (
-              draft.questions.length > 0 &&
-              draft.questions.every((question) => question.label.trim().length >= 5)
-            );
+            return draft.questions.length > 0 && draft.questions.every(perguntaValida);
+          // O A/B de imagens é o único modelo que roda sem build.
           case 3:
-            return !!draft.buildFileName;
+            return draft.model === 'AB_IMAGES' || (!!draft.buildId && get().buildValida);
           case 4:
             return (
               (draft.budget.untilDisabled || draft.budget.slots > 0) &&
@@ -232,6 +302,9 @@ export const useTestStore = create<TestState>()(
           maxStepReached: 1,
           uploadProgress: 0,
           uploadState: 'idle',
+          buildValida: false,
+          testIdCriado: null,
+          chave: novaChave(),
         }),
     }),
     {
@@ -242,7 +315,15 @@ export const useTestStore = create<TestState>()(
         draft: state.draft,
         currentStep: state.currentStep,
         maxStepReached: state.maxStepReached,
+        buildValida: state.buildValida,
+        testIdCriado: state.testIdCriado,
+        chave: state.chave,
       }),
+      // Rascunho salvo antes destes campos existirem.
+      merge: (salvo, atual) => {
+        const estado = { ...atual, ...(salvo as Partial<TestState>) };
+        return { ...estado, draft: { ...emptyDraft, ...estado.draft } };
+      },
     },
   ),
 );

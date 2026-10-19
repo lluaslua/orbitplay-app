@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 import { Award, BadgeDollarSign, Home, Target, UserRound } from 'lucide-react';
 import { PageHeading } from '@/components/Common/PageHeading';
 import { Button, Card, ErrorState, SkeletonCard, UserAvatar } from '@/components/UI';
@@ -18,8 +18,9 @@ import { cn, formatAmount } from '@/utils/helpers';
  * aviso de que a IA ainda está analisando. Quando a última fecha, os quatro
  * cards aparecem.
  *
- * Sem backend, as etapas avançam por tempo — é o que faz os dois estados
- * desenhados serem alcançáveis.
+ * O resultado (XP, nível, recompensa, conquistas) é o que a API calculou no
+ * envio da sessão deste teste. As etapas avançam por tempo — é o que faz os
+ * dois estados desenhados serem alcançáveis.
  */
 const ETAPAS = [
   'Gravação vinculada',
@@ -31,8 +32,9 @@ const ETAPAS = [
 const INTERVALO_ETAPA_MS = 2200;
 
 export function ResultadoParticipacao() {
+  const { testId } = useParams<{ testId: string }>();
   const player = usePlayerUser();
-  const outcome = useSessionOutcome();
+  const outcome = useSessionOutcome(testId);
   const jogo = useGame(outcome.data?.gameId);
 
   const [concluidas, setConcluidas] = useState(2);

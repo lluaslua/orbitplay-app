@@ -1,10 +1,19 @@
-import { useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { Fragment, useRef, useState } from 'react';
+import { Navigate, useNavigate, useParams } from 'react-router-dom';
 import { PageHeading } from '@/components/Common/PageHeading';
-import { Button, Card, Checkbox, ErrorState, Input, Radio, SkeletonCard, Tag } from '@/components/UI';
+import { CampoPergunta } from '@/components/Player/CampoPergunta';
+import { Button, Card, Checkbox, ErrorState, Input, SkeletonCard, Tag } from '@/components/UI';
 import { useGame } from '@/hooks/useGames';
-import { useSessionReview } from '@/hooks/usePlayer';
-import type { Game, PlayerSessionReview } from '@/types';
+import { useBuildDoTeste, useEventosDaSessao, useSessionReview, useSubmitSession } from '@/hooks/usePlayer';
+import { useSessaoStore } from '@/stores/sessaoStore';
+import type { ApiError, FormQuestion, Game, PlayerSessionReview } from '@/types';
+import {
+  eventosDosProblemas,
+  montarEnvio,
+  validarRespostas,
+  type Resposta,
+  type Respostas,
+} from '@/utils/avaliacao';
 import { ROUTES } from '@/utils/constants';
 import { formatAmount, formatCountdown } from '@/utils/helpers';
 
@@ -14,9 +23,27 @@ import { formatAmount, formatCountdown } from '@/utils/helpers';
  * Dois cards: a sessão gravada (vídeo + transcrição com marcação de tempo) e o
  * formulário de avaliação.
  *
- * O formulário é fixo, não montado a partir das perguntas do teste: o arquivo
- * desenha estas nove perguntas com estes rótulos.
+ * O formulário é o que o estúdio montou na etapa 2 do Novo teste
+ * (`review.questions`), no visual do arquivo (`CampoPergunta`). O bloco "Você
+ * encontrou algum problema?" é fixo do app: ele vira os bugs reportados e os
+ * eventos BUG da sessão. "Enviar" manda tudo para a API, que calcula XP,
+ * recompensa e conquistas, e leva ao resultado.
  */
+/** As escalas que abrem o formulário no arquivo — o bloco de problemas vem logo depois delas. */
+const ESCALAS: FormQuestion['type'][] = ['LINEAR_SCALE', 'RATING'];
+const ESCRITAS: FormQuestion['type'][] = ['SHORT_TEXT', 'PARAGRAPH'];
+
+/**
+ * Divisória antes de uma resposta escrita que vem depois de outro tipo de
+ * pergunta (ou do bloco de problemas), como entre "recomendaria" e "Qual foi o
+ * momento mais divertido do teste?" no arquivo.
+ */
+function abreGrupoEscrito(perguntas: FormQuestion[], indice: number, depoisDoBloco: boolean): boolean {
+  if (!ESCRITAS.includes(perguntas[indice].type)) return false;
+  if (indice === 0) return depoisDoBloco;
+  return !ESCRITAS.includes(perguntas[indice - 1].type);
+}
+
 const PROBLEMAS = [
   'Travamentos',
   'Bug visual',
@@ -28,11 +55,20 @@ const PROBLEMAS = [
 export function ResumoSessao() {
   const { testId } = useParams<{ testId: string }>();
   const navigate = useNavigate();
-  const sessao = useSessionReview();
+  const sessao = useSessionReview(testId);
   const jogo = useGame(sessao.data?.gameId);
+  // Sem build (o A/B de imagens) não houve jogo rodando: só as perguntas.
+  const build = useBuildDoTeste(testId);
+  const enviarSessao = useSubmitSession();
+  const eventos = useEventosDaSessao();
+  const sessaoDeJogo = useSessaoStore();
 
-  const [respostas, setRespostas] = useState<Record<string, string | number>>({});
+  const [respostas, setRespostas] = useState<Respostas>({});
   const [problemas, setProblemas] = useState<string[]>([]);
+  const [explicacao, setExplicacao] = useState('');
+  const [erros, setErros] = useState<Record<string, string>>({});
+  // "Tempo médio da avaliação" do relatório: do formulário aberto ao envio.
+  const abertoEm = useRef(Date.now());
 
   if (sessao.isError) {
     return <ErrorState description="Não conseguimos carregar a sessão." onRetry={() => sessao.refetch()} />;
@@ -40,14 +76,112 @@ export function ResumoSessao() {
 
   if (sessao.isLoading || !sessao.data) return <SkeletonCard />;
 
-  function responder(campo: string, valor: string | number) {
-    setRespostas((atual) => ({ ...atual, [campo]: valor }));
+  const review = sessao.data;
+  // Já enviada: a avaliação não abre de novo, o lugar é o resultado.
+  if (review.status !== 'IN_PROGRESS' && testId && !enviarSessao.isPending && !enviarSessao.isSuccess) {
+    return <Navigate to={ROUTES.player.result(testId)} replace />;
   }
 
-  function enviar(evento: React.FormEvent) {
-    evento.preventDefault();
-    if (testId) navigate(ROUTES.player.result(testId));
+  function responder(perguntaId: string, valor: Resposta) {
+    setRespostas((atual) => ({ ...atual, [perguntaId]: valor }));
+    setErros((atuais) => {
+      const restantes = { ...atuais };
+      delete restantes[perguntaId];
+      return restantes;
+    });
   }
+
+  async function enviar(evento: React.FormEvent) {
+    evento.preventDefault();
+    if (!testId) return;
+
+    const pendentes = validarRespostas(review.questions, respostas);
+    setErros(pendentes);
+    if (Object.keys(pendentes).length) return;
+
+    const mesmaSessao = sessaoDeJogo.testId === testId;
+    const duracao = mesmaSessao ? sessaoDeJogo.segundos() : 0;
+
+    try {
+      if (problemas.length) {
+        await eventos.mutateAsync({
+          participationId: review.id,
+          events: eventosDosProblemas(problemas, explicacao, duracao),
+        });
+      }
+      await enviarSessao.mutateAsync({
+        testId,
+        submission: {
+          participationId: review.id,
+          answers: montarEnvio(review.questions, respostas),
+          bugsReported: problemas.length,
+          durationSeconds: duracao,
+          formSeconds: Math.round((Date.now() - abertoEm.current) / 1000),
+        },
+      });
+    } catch (motivo) {
+      // Obrigatória que só a API pegou: o erro vem por `answers.<id>`.
+      const campos = (motivo as ApiError).fields ?? {};
+      setErros(
+        Object.fromEntries(
+          Object.entries(campos)
+            .filter(([campo]) => campo.startsWith('answers.'))
+            .map(([campo, mensagem]) => [campo.slice('answers.'.length), mensagem]),
+        ),
+      );
+      return;
+    }
+
+    if (mesmaSessao) sessaoDeJogo.limpar();
+    navigate(ROUTES.player.result(testId));
+  }
+
+  const falha = (enviarSessao.error ?? eventos.error) as ApiError | null;
+
+  const inicioSemEscala = review.questions.findIndex((pergunta) => !ESCALAS.includes(pergunta.type));
+  const corte = inicioSemEscala === -1 ? review.questions.length : inicioSemEscala;
+  const perguntasAntes = review.questions.slice(0, corte);
+  const perguntasDepois = review.questions.slice(corte);
+
+  const campo = (pergunta: FormQuestion) => (
+    <CampoPergunta
+      key={pergunta.id}
+      pergunta={pergunta}
+      valor={respostas[pergunta.id]}
+      erro={erros[pergunta.id]}
+      onChange={(valor) => responder(pergunta.id, valor)}
+    />
+  );
+
+  // "Você encontrou algum problema?" — fixo do app: vira os bugs reportados. Sem build não há jogo onde achar bug.
+  const blocoProblemas = !build.isSuccess ? null : (
+    <div className="flex flex-col gap-1">
+      <span className="text-body-bold text-white">Você encontrou algum problema?</span>
+      <div className="flex items-center gap-6">
+        {PROBLEMAS.map((problema) => (
+          <label key={problema} className="flex cursor-pointer items-center gap-2">
+            <Checkbox
+              checked={problemas.includes(problema)}
+              onCheckedChange={(marcado) =>
+                setProblemas((atuais) =>
+                  marcado === true
+                    ? [...atuais, problema]
+                    : atuais.filter((item) => item !== problema),
+                )
+              }
+            />
+            <span className="whitespace-nowrap text-body text-white">{problema}</span>
+          </label>
+        ))}
+
+        <Input
+          value={explicacao}
+          onChange={(evento) => setExplicacao(evento.target.value)}
+          placeholder="Explique..."
+        />
+      </div>
+    </div>
+  );
 
   return (
     <div className="flex flex-col gap-6">
@@ -55,13 +189,13 @@ export function ResumoSessao() {
         trilha={[
           { label: 'Home', to: ROUTES.player.home },
           { label: 'jogos', to: ROUTES.player.catalog },
-          { label: 'Detalhes', to: ROUTES.player.game(sessao.data.gameId) },
+          { label: 'Detalhes', to: ROUTES.player.game(review.gameId) },
           { label: 'Avaliação do jogo' },
         ]}
         titulo="Avaliação do jogo"
       />
 
-      <CardSessao sessao={sessao.data} jogo={jogo.data} />
+      {build.isSuccess && <CardSessao sessao={review} jogo={jogo.data} />}
 
       <Card className="gap-6 p-8">
         <div className="flex flex-col gap-1">
@@ -74,113 +208,38 @@ export function ResumoSessao() {
 
         <hr className="border-orbit-border" />
 
-        <form onSubmit={enviar} className="flex flex-col gap-6">
-          <Escala
-            campo="geral"
-            rotulo="Avaliação geral*"
-            maximo={5}
-            valor={respostas.geral as number}
-            onChange={responder}
-          />
-          <Escala
-            campo="diversao"
-            rotulo="Quão divertido foi?"
-            maximo={10}
-            valor={respostas.diversao as number}
-            onChange={responder}
-          />
-          <Escala
-            campo="desafio"
-            rotulo="Nível do desafio"
-            maximo={10}
-            inicio="Fácil"
-            fim="Difícil"
-            valor={respostas.desafio as number}
-            onChange={responder}
-          />
-          <Escala
-            campo="rejogar"
-            rotulo="Por quanto tempo você jogaria novamente?"
-            maximo={10}
-            inicio="Pouco tempo"
-            fim="Muito tempo"
-            valor={respostas.rejogar as number}
-            onChange={responder}
-          />
+        <form onSubmit={enviar} noValidate className="flex flex-col gap-6">
+          {/*
+            A ordem do arquivo: as escalas do começo, a divisória, o bloco fixo
+            de problemas e as perguntas do estúdio que vêm depois, com uma
+            divisória antes de cada grupo de respostas escritas. Formulário que
+            não começa por escala recebe o bloco no fim.
+          */}
+          {perguntasAntes.map(campo)}
 
-          <hr className="border-orbit-border" />
+          {perguntasAntes.length > 0 && blocoProblemas && <hr className="border-orbit-dim" />}
+          {perguntasAntes.length > 0 && blocoProblemas}
 
-          <div className="flex flex-col gap-1">
-            <span className="text-body-bold text-white">Você encontrou algum problema?</span>
-            <div className="flex items-center gap-6">
-              {PROBLEMAS.map((problema) => (
-                <label key={problema} className="flex cursor-pointer items-center gap-2">
-                  <Checkbox
-                    checked={problemas.includes(problema)}
-                    onCheckedChange={(marcado) =>
-                      setProblemas((atuais) =>
-                        marcado === true
-                          ? [...atuais, problema]
-                          : atuais.filter((item) => item !== problema),
-                      )
-                    }
-                  />
-                  <span className="whitespace-nowrap text-body text-white">{problema}</span>
-                </label>
-              ))}
+          {perguntasDepois.map((pergunta, indice) => (
+            <Fragment key={pergunta.id}>
+              {abreGrupoEscrito(perguntasDepois, indice, perguntasAntes.length > 0) && (
+                <hr className="border-orbit-dim" />
+              )}
+              {campo(pergunta)}
+            </Fragment>
+          ))}
 
-              <Input
-                value={(respostas.explique as string) ?? ''}
-                onChange={(evento) => responder('explique', evento.target.value)}
-                placeholder="Explique..."
-              />
-            </div>
-          </div>
+          {perguntasAntes.length === 0 && blocoProblemas && <hr className="border-orbit-dim" />}
+          {perguntasAntes.length === 0 && blocoProblemas}
 
-          <div className="flex flex-col gap-1">
-            <span className="text-body-bold text-white">
-              Você recomendaria esse jogo a um amigo?
-            </span>
-            <div className="flex items-center gap-3">
-              {['Sim', 'Não', 'Talvez'].map((opcao) => (
-                <label key={opcao} className="flex cursor-pointer items-center gap-2 pr-3">
-                  <span className="text-body text-white">{opcao}</span>
-                  <Radio
-                    name="recomendaria"
-                    checked={respostas.recomendaria === opcao}
-                    onChange={() => responder('recomendaria', opcao)}
-              />
-                </label>
-              ))}
-            </div>
-          </div>
-
-          <hr className="border-orbit-border" />
-
-          <CampoLivre
-            campo="divertido"
-            rotulo="Qual foi o momento mais divertido do teste?"
-            valor={respostas.divertido as string}
-            onChange={responder}
-          />
-          <CampoLivre
-            campo="incomodou"
-            rotulo="O que mais te incomodou durante o jogo?"
-            valor={respostas.incomodou as string}
-            onChange={responder}
-          />
-
-          <hr className="border-orbit-border" />
-
-          <CampoLivre
-            campo="feedback"
-            rotulo="Deixe o seu feedback"
-            valor={respostas.feedback as string}
-            onChange={responder}
-          />
+          {(falha || Object.keys(erros).length > 0) && (
+            <p className="rounded-xl border border-orbit-error bg-orbit-error-bg p-3 text-graphic text-orbit-error">
+              {Object.keys(erros).length ? 'Responda as perguntas obrigatórias.' : falha?.message}
+            </p>
+          )}
 
           <div className="flex justify-end">
-            <Button variant="nightfall" type="submit">
+            <Button variant="nightfall" type="submit" loading={enviarSessao.isPending || eventos.isPending}>
               Enviar
             </Button>
           </div>
@@ -276,76 +335,5 @@ function CardSessao({ sessao, jogo }: { sessao: PlayerSessionReview; jogo?: Game
         </div>
       </div>
     </Card>
-  );
-}
-
-/**
- * Escala numérica.
- *
- * O arquivo usa caixas de seleção na "Avaliação geral" e rádios nas outras
- * três. Aqui todas são rádio: é uma nota única, e caixa deixaria marcar vários.
- */
-function Escala({
-  campo,
-  rotulo,
-  maximo,
-  inicio,
-  fim,
-  valor,
-  onChange,
-}: {
-  campo: string;
-  rotulo: string;
-  maximo: number;
-  inicio?: string;
-  fim?: string;
-  valor?: number;
-  onChange: (campo: string, valor: number) => void;
-}) {
-  return (
-    <div className="flex flex-col gap-1">
-      <span className="text-body-bold text-white">{rotulo}</span>
-
-      <div className="flex items-center gap-6">
-        {inicio && <span className="whitespace-nowrap text-body text-white">{inicio}</span>}
-
-        <div className="flex items-end gap-6">
-          {Array.from({ length: maximo }, (_, indice) => indice + 1).map((nota) => (
-            <label key={nota} className="flex w-6 cursor-pointer flex-col items-center gap-1">
-              <span className="text-caption text-white">{nota}</span>
-              <Radio
-                name={campo}
-                checked={valor === nota}
-                onChange={() => onChange(campo, nota)}
-                aria-label={`${rotulo}: ${nota}`}
-              />
-            </label>
-          ))}
-        </div>
-
-        {fim && <span className="whitespace-nowrap text-body text-white">{fim}</span>}
-      </div>
-    </div>
-  );
-}
-
-function CampoLivre({
-  campo,
-  rotulo,
-  valor,
-  onChange,
-}: {
-  campo: string;
-  rotulo: string;
-  valor?: string;
-  onChange: (campo: string, valor: string) => void;
-}) {
-  return (
-    <Input
-      label={rotulo}
-      value={valor ?? ''}
-      onChange={(evento) => onChange(campo, evento.target.value)}
-      placeholder="Digite..."
-    />
   );
 }
