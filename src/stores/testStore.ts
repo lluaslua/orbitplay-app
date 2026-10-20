@@ -87,6 +87,9 @@ export function calculateBudget(budget: PlaytestBudget): PlaytestBudget {
   };
 }
 
+/** A etapa de envio da build — o A/B de imagens pula. */
+export const ETAPA_BUILD = 3;
+
 interface TestState {
   draft: TestDraft;
   currentStep: number;
@@ -149,13 +152,20 @@ export const useTestStore = create<TestState>()(
           maxStepReached: Math.max(state.maxStepReached, Math.min(step, 5)),
         })),
 
+      // O A/B de imagens não tem build: a etapa 3 não existe para ele.
       nextStep: () =>
         set((state) => {
-          const next = Math.min(state.currentStep + 1, 5);
+          let next = Math.min(state.currentStep + 1, 5);
+          if (next === ETAPA_BUILD && state.draft.model === 'AB_IMAGES') next += 1;
           return { currentStep: next, maxStepReached: Math.max(state.maxStepReached, next) };
         }),
 
-      previousStep: () => set((state) => ({ currentStep: Math.max(state.currentStep - 1, 1) })),
+      previousStep: () =>
+        set((state) => {
+          let anterior = Math.max(state.currentStep - 1, 1);
+          if (anterior === ETAPA_BUILD && state.draft.model === 'AB_IMAGES') anterior -= 1;
+          return { currentStep: anterior };
+        }),
 
       /*
        * A build e o teste criado pertencem ao jogo: trocar de jogo começa um

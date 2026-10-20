@@ -14,7 +14,7 @@ import { Button, Card, Stepper } from '@/components/UI';
 import { useGames } from '@/hooks/useGames';
 import { useCreateTest, usePagarTeste } from '@/hooks/useTests';
 import { useStudioUser } from '@/stores/authStore';
-import { useTestStore } from '@/stores/testStore';
+import { ETAPA_BUILD, useTestStore } from '@/stores/testStore';
 import { ROUTES, TEST_STEPS } from '@/utils/constants';
 import { cn } from '@/utils/helpers';
 
@@ -103,6 +103,19 @@ export default function StudioNewTestPage() {
    * disparar em loop. Quem fecha a conta é a etapa 4, que conhece o modelo.
    */
 
+  // A/B de imagens roda sem build: o stepper não ganha a bolinha da etapa 3.
+  const semBuild = draft.model === 'AB_IMAGES';
+  const etapasDoStepper = TEST_STEPS.filter((step) => !(semBuild && step.id === ETAPA_BUILD));
+  const indiceNoStepper = Math.max(
+    etapasDoStepper.findIndex((step) => step.id === Math.min(currentStep, TEST_STEPS.length)),
+    0,
+  );
+
+  // Rascunho salvo parado na etapa de build antes de o modelo ser A/B: segue para o orçamento.
+  useEffect(() => {
+    if (semBuild && currentStep === ETAPA_BUILD) setStep(ETAPA_BUILD + 1);
+  }, [semBuild, currentStep, setStep]);
+
   const podeAvancar = isStepValid(currentStep);
   const naEtapaDeCompra = currentStep === 4;
   const naConfirmacao = currentStep === ULTIMA_ETAPA;
@@ -150,10 +163,11 @@ export default function StudioNewTestPage() {
           <>
             <Stepper
               className="mx-auto w-[560px] flex-none"
-              steps={TEST_STEPS.map((step) => ({ id: step.id, label: step.title }))}
-              current={Math.min(currentStep, TEST_STEPS.length) - 1}
+              steps={etapasDoStepper.map((step) => ({ id: step.id, label: step.title }))}
+              current={indiceNoStepper}
               onStepClick={(index) => {
-                if (index + 1 <= maxStepReached) setStep(index + 1);
+                const etapa = etapasDoStepper[index]?.id;
+                if (etapa && etapa <= maxStepReached) setStep(etapa);
               }}
             />
 
@@ -169,7 +183,7 @@ export default function StudioNewTestPage() {
         <div className={cn('animate-fade-in', !naConfirmacao && 'mt-6')}>
           {currentStep === 1 && <Step1SelectModel />}
           {currentStep === 2 && <Step2CreateForm />}
-          {currentStep === 3 && <Step3UploadBuild />}
+          {currentStep === ETAPA_BUILD && !semBuild && <Step3UploadBuild />}
           {currentStep === 4 && <Step4Budget />}
           {currentStep === 5 && <Step5Confirmation />}
         </div>
