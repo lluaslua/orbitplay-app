@@ -1,7 +1,10 @@
+import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { get, post } from '@/lib/api';
+import { api, get, post } from '@/lib/api';
+import { USE_MOCKS } from '@/mocks/server';
 import { queryKeys } from '@/lib/queryClient';
 import { useAuthStore } from '@/stores/authStore';
+import { STORAGE_KEYS } from '@/utils/constants';
 import type {
   ApiError,
   ChatAuthor,
@@ -17,7 +20,7 @@ import type {
  * e a API decide quem entra. Por isso os hooks moram aqui, e não em `usePlayer`.
  */
 
-/** A cada quantos ms a conversa aberta procura mensagens novas. */
+/** A cada quantos ms a conversa procura mensagens novas quando o socket está fora do ar. */
 const INTERVALO_DA_CONVERSA = 5_000;
 
 /** Prefixo do id do balão que aparece antes de a API confirmar o envio. */
@@ -59,22 +62,93 @@ export function useGameCommunity(gameId: string | undefined) {
   });
 }
 
+/** Espera antes de tentar reabrir o socket que caiu. */
+const RECONEXAO_MS = 2_000;
+
+type EventoDoChat =
+  | { type: 'message.created'; gameId: string; message: ChatMessage }
+  | { type: 'message.deleted'; gameId: string; channelId: string; messageId: string };
+
+/**
+ * Mantém um WebSocket aberto com a comunidade do jogo enquanto a conversa está
+ * na tela: mensagens novas e apagadas entram direto no cache, sem esperar
+ * nenhuma consulta. Devolve se está conectado — enquanto não está (ou nos
+ * mocks, que não têm socket), a conversa volta a perguntar de tempos em tempos.
+ */
+function useCommunitySocket(gameId: string): boolean {
+  const client = useQueryClient();
+  const viewerId = useViewerId();
+  const [conectado, setConectado] = useState(false);
+
+  useEffect(() => {
+    if (USE_MOCKS) return;
+    let fechado = false;
+    let socket: WebSocket | null = null;
+    let timer: ReturnType<typeof setTimeout>;
+
+    function abrir() {
+      const token = localStorage.getItem(STORAGE_KEYS.token);
+      if (!token) return;
+      const base = String(api.defaults.baseURL).replace(/^http/, 'ws');
+      socket = new WebSocket(`${base}/community/ws?gameId=${encodeURIComponent(gameId)}&token=${encodeURIComponent(token)}`);
+
+      socket.onopen = () => {
+        setConectado(true);
+        // O que chegou enquanto estava fora do ar.
+        void client.invalidateQueries({ queryKey: queryKeys.community(gameId, viewerId) });
+      };
+      socket.onmessage = (evento) => {
+        const dado = JSON.parse(String(evento.data)) as EventoDoChat;
+        if (dado.gameId !== gameId) return;
+        const chave = (canal: string) => queryKeys.communityMessages(gameId, viewerId, canal);
+
+        if (dado.type === 'message.created') {
+          // As próprias mensagens já voltam pela resposta do envio.
+          if (dado.message.author.id === viewerId) return;
+          client.setQueryData<ChatMessage[]>(chave(dado.message.channelId), (atual) =>
+            !atual || atual.some((m) => m.id === dado.message.id) ? atual : [...atual, dado.message],
+          );
+        } else {
+          client.setQueryData<ChatMessage[]>(chave(dado.channelId), (atual) =>
+            atual?.filter((m) => m.id !== dado.messageId),
+          );
+        }
+      };
+      socket.onclose = () => {
+        setConectado(false);
+        if (!fechado) timer = setTimeout(abrir, RECONEXAO_MS);
+      };
+    }
+
+    abrir();
+    return () => {
+      fechado = true;
+      clearTimeout(timer);
+      socket?.close();
+      setConectado(false);
+    };
+  }, [client, gameId, viewerId]);
+
+  return conectado;
+}
+
 /**
  * Mensagens de um canal.
  *
- * Enquanto a conversa está aberta, ela pergunta de tempos em tempos se chegou
- * mensagem nova — é assim que o que o estúdio escreve aparece para o tester sem
- * recarregar a tela, e vice-versa. Abrir o canal também busca na hora: o que
- * estiver em cache aparece enquanto isso, mas nunca vale como atual.
+ * Com o socket conectado, o que o estúdio escreve aparece para o tester (e
+ * vice-versa) assim que a API publica, sem recarregar a tela. Sem socket, a
+ * conversa pergunta a cada poucos segundos. Abrir o canal também busca na hora:
+ * o que estiver em cache aparece enquanto isso, mas nunca vale como atual.
  */
 export function useChannelMessages(gameId: string, channelId: string) {
   const viewerId = useViewerId();
+  const conectado = useCommunitySocket(gameId);
 
   return useQuery({
     queryKey: queryKeys.communityMessages(gameId, viewerId, channelId),
     queryFn: () => get<ChatMessage[]>(`/games/${gameId}/community/channels/${channelId}/messages`),
     staleTime: 0,
-    refetchInterval: INTERVALO_DA_CONVERSA,
+    refetchInterval: conectado ? false : INTERVALO_DA_CONVERSA,
   });
 }
 
