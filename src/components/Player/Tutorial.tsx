@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Navigate, useNavigate, useParams } from 'react-router-dom';
 import { baixarArquivo, urlDaApi } from '@/lib/api';
-import { useBuildDoTeste, useConsentimento, useSessionReview } from '@/hooks/usePlayer';
+import { useAbrirJogo, useBuildDoTeste, useConsentimento, useSessionReview } from '@/hooks/usePlayer';
 import { useSessaoStore } from '@/stores/sessaoStore';
 import type { BuildDownloadInfo } from '@/types';
 import { STORAGE_KEYS, TUTORIAL_OBSERVAR, TUTORIAL_DICAS, ROUTES } from '@/utils/constants';
@@ -18,8 +18,8 @@ import { Button } from '@/components/UI';
  * a 100% a barra fica verde e aparece "Rever tutorial".
  *
  * Enquanto o tester assiste, a build do teste baixa de verdade: no app desktop
- * vai para a pasta do OrbitPlay (e é mostrada ao iniciar); no navegador, para
- * os downloads. "Iniciar Jogo!" aceita o que o teste exige e começa a sessão.
+ * vai para a pasta do OrbitPlay; no navegador, para os downloads. "Iniciar
+ * Jogo!" aceita o que o teste exige, começa a sessão e, no desktop, abre o jogo.
  */
 
 /** Vídeo do tutorial — o `v=` da URL que o YouTube usa como id do embed. */
@@ -38,6 +38,7 @@ export function Tutorial() {
   const semBuild = emAndamento && build.isError;
   const download = useDownloadDaBuild(testId, build.data, semBuild);
   const consentir = useConsentimento();
+  const abrirJogo = useAbrirJogo();
   const iniciarSessao = useSessaoStore((state) => state.iniciar);
 
   const { progresso } = download;
@@ -47,6 +48,9 @@ export function Tutorial() {
   // Teste sem build (o A/B de imagens): não há o que baixar nem jogo para rodar, vai direto às perguntas.
   if (testId && emAndamento && build.isLoading) return null;
   if (testId && semBuild) return <Navigate to={ROUTES.player.summary(testId)} replace />;
+
+  // Desistiu do teste: não há o que retomar.
+  if (participacao?.status === 'ABANDONED') return <Navigate to={ROUTES.player.game(participacao.gameId)} replace />;
 
   // Teste já enviado: o tutorial não tem mais o que fazer, o lugar é o resultado.
   if (participacao && !emAndamento && testId) {
@@ -71,15 +75,24 @@ export function Tutorial() {
       return;
     }
     iniciarSessao(testId, participacao.id);
-    if (download.caminho) void window.orbit?.builds.mostrar(download.caminho);
     // Sem build não há jogo para rodar: vai direto às perguntas.
-    navigate(semBuild ? ROUTES.player.summary(testId) : ROUTES.player.gameplay(testId));
+    if (semBuild) return navigate(ROUTES.player.summary(testId));
+    // No desktop o jogo abre aqui e o app passa a acompanhar; no navegador a build ficou nos downloads.
+    if (window.orbit && build.data) {
+      try {
+        await abrirJogo.mutateAsync({ participationId: participacao.id, build: build.data });
+      } catch {
+        return;
+      }
+    }
+    navigate(ROUTES.player.gameplay(testId));
   }
 
   const aviso =
     (sessao.error as { message?: string } | null)?.message ??
     download.erro ??
     (consentir.error as { message?: string } | null)?.message ??
+    (abrirJogo.error as { message?: string } | null)?.message ??
     null;
 
   return (
@@ -138,7 +151,7 @@ export function Tutorial() {
             variant="nightfall"
             onClick={avancar}
             disabled={ultima && !pronto}
-            loading={consentir.isPending}
+            loading={consentir.isPending || abrirJogo.isPending}
             className={cn(ultima && !pronto && 'disabled:bg-orbit-faint disabled:text-white')}
           >
             {ultima ? 'Iniciar Jogo!' : 'Próximo'}
@@ -189,7 +202,6 @@ function useDownloadDaBuild(testId: string | undefined, info: BuildDownloadInfo 
   const [progresso, setProgresso] = useState(0);
   const [estado, setEstado] = useState<'baixando' | 'pronto' | 'erro'>('baixando');
   const [erro, setErro] = useState<string | null>(null);
-  const [caminho, setCaminho] = useState<string | null>(null);
   const [tentativa, setTentativa] = useState(0);
 
   useEffect(() => {
@@ -229,9 +241,8 @@ function useDownloadDaBuild(testId: string | undefined, info: BuildDownloadInfo 
           .finally(() => baixandoNoDesktop.delete(testId));
         baixandoNoDesktop.set(testId, baixando);
       }
-      baixando.then((arquivo) => {
+      baixando.then(() => {
         if (!ativo) return;
-        setCaminho(arquivo);
         setProgresso(1);
         setEstado('pronto');
       }, falhou);
@@ -265,7 +276,7 @@ function useDownloadDaBuild(testId: string | undefined, info: BuildDownloadInfo 
     };
   }, [testId, info, semBuild, tentativa]);
 
-  return { progresso, estado, erro, caminho, tentarDeNovo: () => setTentativa((atual) => atual + 1) };
+  return { progresso, estado, erro, tentarDeNovo: () => setTentativa((atual) => atual + 1) };
 }
 
 function Bolinhas({ total, atual }: { total: number; atual: number }) {

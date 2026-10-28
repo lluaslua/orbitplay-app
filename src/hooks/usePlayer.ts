@@ -1,9 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { comChave, get, post } from '@/lib/api';
+import { comChave, get, post, urlDaApi } from '@/lib/api';
 import { queryKeys } from '@/lib/queryClient';
 import { useAuthStore } from '@/stores/authStore';
+import { STORAGE_KEYS } from '@/utils/constants';
 import type {
   Achievement,
+  ApiError,
   AvailableTest,
   BuildDownloadInfo,
   ConsentPayload,
@@ -12,6 +14,7 @@ import type {
   PlayerDashboard,
   PlayerGameTest,
   PlayerSessionReview,
+  PlayStatus,
   SessionOutcome,
   SessionResult,
   SessionSubmission,
@@ -115,6 +118,69 @@ export function useConsentimento() {
   return useMutation({
     mutationFn: ({ participationId, consentimento }: { participationId: string; consentimento: ConsentPayload }) =>
       post<{ consentAt: string }>(`/player/participations/${participationId}/consent`, consentimento),
+  });
+}
+
+/**
+ * Abre o jogo do teste pelo app desktop, que passa a contar o tempo jogado e
+ * avisa quando ele fecha (TELA 17). No navegador não há como abrir nem acompanhar a build.
+ */
+export function useAbrirJogo() {
+  const client = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ participationId, build }: { participationId: string; build: BuildDownloadInfo }) => {
+      const orbit = window.orbit;
+      if (!orbit) throw { message: 'Abra o teste pelo app OrbitPlay para jogar.' } satisfies ApiError;
+      try {
+        await orbit.jogo.abrir({
+          testId: build.testId,
+          participationId,
+          fileName: build.fileName,
+          comControle: !!build.requiresController,
+          apiUrl: urlDaApi(''),
+          token: localStorage.getItem(STORAGE_KEYS.token) ?? '',
+        });
+      } catch (erro) {
+        // O IPC embrulha o erro do main: "Error invoking remote method 'jogo:abrir': Error: <mensagem>".
+        const mensagem = (erro as Error).message.replace(/^Error invoking remote method '[^']+': (Error: )?/, '');
+        throw { message: mensagem } satisfies ApiError;
+      }
+    },
+    onSuccess: (_resultado, { build }) => {
+      client.invalidateQueries({ queryKey: queryKeys.sessionReview(build.testId) });
+    },
+  });
+}
+
+/**
+ * O jogo fechou: a avaliação já abre com o tempo que a API somou até o fim, sem
+ * mostrar antes o estado de quando o jogo abriu (TELA 17 -> TELA 18).
+ */
+export function useAoFecharJogo() {
+  const client = useQueryClient();
+
+  return (testId: string, status: PlayStatus | null) => {
+    if (!status) return void client.invalidateQueries({ queryKey: queryKeys.sessionReview(testId) });
+    client.setQueryData<PlayerSessionReview>(queryKeys.sessionReview(testId), (atual) =>
+      atual ? { ...atual, play: status } : atual,
+    );
+  };
+}
+
+/** "Desistir do teste": devolve a vaga sem enviar a avaliação (TELA 17). */
+export function useDesistirDoTeste() {
+  const client = useQueryClient();
+
+  return useMutation({
+    mutationFn: (testId: string) => post<Participation>(`/player/tests/${testId}/abandon`),
+    onSuccess: (_participacao, testId) => {
+      client.invalidateQueries({ queryKey: ['player', 'games'] });
+      client.invalidateQueries({ queryKey: queryKeys.playerCatalog });
+      client.invalidateQueries({ queryKey: queryKeys.participations });
+      client.invalidateQueries({ queryKey: queryKeys.playerDashboard });
+      client.invalidateQueries({ queryKey: queryKeys.sessionReview(testId) });
+    },
   });
 }
 

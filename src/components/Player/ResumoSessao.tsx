@@ -2,9 +2,30 @@ import { Fragment, useRef, useState } from 'react';
 import { Navigate, useNavigate, useParams } from 'react-router-dom';
 import { PageHeading } from '@/components/Common/PageHeading';
 import { CampoPergunta } from '@/components/Player/CampoPergunta';
-import { Button, Card, Checkbox, ErrorState, Input, SkeletonCard, Tag } from '@/components/UI';
+import {
+  Button,
+  Card,
+  Checkbox,
+  ErrorState,
+  Input,
+  Modal,
+  ModalContent,
+  ModalDescription,
+  ModalFooter,
+  ModalHeader,
+  ModalTitle,
+  SkeletonCard,
+  Tag,
+} from '@/components/UI';
 import { useGame } from '@/hooks/useGames';
-import { useBuildDoTeste, useEventosDaSessao, useSessionReview, useSubmitSession } from '@/hooks/usePlayer';
+import {
+  useAbrirJogo,
+  useBuildDoTeste,
+  useDesistirDoTeste,
+  useEventosDaSessao,
+  useSessionReview,
+  useSubmitSession,
+} from '@/hooks/usePlayer';
 import { useSessaoStore } from '@/stores/sessaoStore';
 import type { ApiError, FormQuestion, Game, PlayerSessionReview } from '@/types';
 import {
@@ -16,6 +37,7 @@ import {
 } from '@/utils/avaliacao';
 import { ROUTES } from '@/utils/constants';
 import { formatAmount, formatCountdown } from '@/utils/helpers';
+import { avaliacaoBloqueada, avisoDoJogo } from '@/utils/jogo';
 
 /**
  * TELA 18 — Avaliação do jogo. Figma: frame `235:7874`.
@@ -28,6 +50,10 @@ import { formatAmount, formatCountdown } from '@/utils/helpers';
  * encontrou algum problema?" é fixo do app: ele vira os bugs reportados e os
  * eventos BUG da sessão. "Enviar" manda tudo para a API, que calcula XP,
  * recompensa e conquistas, e leva ao resultado.
+ *
+ * Com build, o formulário só abre depois de jogar (`review.play`, Tela 17): quem
+ * não abriu o jogo ou fechou logo volta ao jogo ou desiste do teste. Jogo que
+ * travou ou que não chegou ao tempo do teste abre o formulário com um aviso.
  */
 /** As escalas que abrem o formulário no arquivo — o bloco de problemas vem logo depois delas. */
 const ESCALAS: FormQuestion['type'][] = ['LINEAR_SCALE', 'RATING'];
@@ -62,6 +88,9 @@ export function ResumoSessao() {
   const enviarSessao = useSubmitSession();
   const eventos = useEventosDaSessao();
   const sessaoDeJogo = useSessaoStore();
+  const abrirJogo = useAbrirJogo();
+  const desistir = useDesistirDoTeste();
+  const [confirmarDesistencia, setConfirmarDesistencia] = useState(false);
 
   const [respostas, setRespostas] = useState<Respostas>({});
   const [problemas, setProblemas] = useState<string[]>([]);
@@ -77,9 +106,38 @@ export function ResumoSessao() {
   if (sessao.isLoading || !sessao.data) return <SkeletonCard />;
 
   const review = sessao.data;
+  // Desistiu do teste: não há avaliação, volta ao jogo no catálogo.
+  if (review.status === 'ABANDONED' && !desistir.isPending) {
+    return <Navigate to={ROUTES.player.game(review.gameId)} replace />;
+  }
   // Já enviada: a avaliação não abre de novo, o lugar é o resultado.
   if (review.status !== 'IN_PROGRESS' && testId && !enviarSessao.isPending && !enviarSessao.isSuccess) {
     return <Navigate to={ROUTES.player.result(testId)} replace />;
+  }
+
+  const partida = review.play ?? null;
+  const bloqueada = avaliacaoBloqueada(partida);
+  const aviso = avisoDoJogo(partida);
+
+  async function voltarAoJogo() {
+    if (!testId || !build.data) return;
+    try {
+      await abrirJogo.mutateAsync({ participationId: review.id, build: build.data });
+    } catch {
+      return;
+    }
+    navigate(ROUTES.player.gameplay(testId));
+  }
+
+  async function desistirDoTeste() {
+    if (!testId) return;
+    try {
+      await desistir.mutateAsync(testId);
+    } catch {
+      return;
+    }
+    if (sessaoDeJogo.testId === testId) sessaoDeJogo.limpar();
+    navigate(ROUTES.player.game(review.gameId));
   }
 
   function responder(perguntaId: string, valor: Resposta) {
@@ -197,6 +255,29 @@ export function ResumoSessao() {
 
       {build.isSuccess && <CardSessao sessao={review} jogo={jogo.data} />}
 
+      {bloqueada && aviso ? (
+        <Card className="gap-6 p-8">
+          <div className="flex flex-col gap-1">
+            <h2 className="text-headline text-white">{aviso.titulo}</h2>
+            <p className="text-body text-white">{aviso.texto}</p>
+          </div>
+
+          {(abrirJogo.error || desistir.error) && (
+            <p className="rounded-xl border border-orbit-error bg-orbit-error-bg p-3 text-graphic text-orbit-error">
+              {((abrirJogo.error ?? desistir.error) as ApiError).message}
+            </p>
+          )}
+
+          <div className="flex justify-end gap-6">
+            <Button variant="tertiary" onClick={() => setConfirmarDesistencia(true)}>
+              Desistir do teste
+            </Button>
+            <Button variant="nightfall" onClick={voltarAoJogo} loading={abrirJogo.isPending} disabled={!build.data}>
+              {partida?.outcome === 'NOT_OPENED' ? 'Abrir o jogo' : 'Voltar ao jogo'}
+            </Button>
+          </div>
+        </Card>
+      ) : (
       <Card className="gap-6 p-8">
         <div className="flex flex-col gap-1">
           <h2 className="text-headline text-white">Sua avaliação</h2>
@@ -205,6 +286,13 @@ export function ResumoSessao() {
             maior pontuação de qualidade, gerando insights mais relevantes e melhores recompensas.
           </p>
         </div>
+
+        {aviso && (
+          <div className="flex flex-col gap-1 rounded-xl border border-orbit-border p-3">
+            <span className="text-body-bold text-white">{aviso.titulo}</span>
+            <span className="text-body text-white">{aviso.texto}</span>
+          </div>
+        )}
 
         <hr className="border-orbit-border" />
 
@@ -245,6 +333,26 @@ export function ResumoSessao() {
           </div>
         </form>
       </Card>
+      )}
+
+      <Modal open={confirmarDesistencia} onOpenChange={setConfirmarDesistencia}>
+        <ModalContent>
+          <ModalHeader>
+            <ModalTitle>Desistir do teste?</ModalTitle>
+            <ModalDescription>
+              A vaga volta para outros testers e você não poderá fazer este teste de novo.
+            </ModalDescription>
+          </ModalHeader>
+          <ModalFooter>
+            <Button variant="tertiary" onClick={() => setConfirmarDesistencia(false)}>
+              Continuar no teste
+            </Button>
+            <Button variant="flame" onClick={desistirDoTeste} loading={desistir.isPending}>
+              Desistir
+            </Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
     </div>
   );
 }

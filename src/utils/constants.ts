@@ -101,6 +101,7 @@ export const PARTICIPATION_STATUS_LABELS: Record<ParticipationStatus, string> = 
   COMPLETED: 'Completo',
   UNAVAILABLE: 'Indisponível',
   REJECTED: 'Recusado',
+  ABANDONED: 'Desistiu',
 };
 
 export const REWARD_STATUS_LABELS: Record<RewardStatus, string> = {

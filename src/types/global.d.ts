@@ -1,3 +1,5 @@
+import type { PlayStatus } from './gameplay';
+
 /**
  * API exposta pelo preload do Electron (`electron/preload.ts`).
  *
@@ -25,7 +27,19 @@ export interface OrbitApi {
       sha256: string | null;
     }) => Promise<string>;
     aoProgredir: (callback: (progresso: { testId: string; fracao: number }) => void) => () => void;
-    mostrar: (caminho: string) => Promise<void>;
+  };
+  jogo: {
+    abrir: (pedido: {
+      testId: string;
+      participationId: string;
+      fileName: string;
+      comControle: boolean;
+      apiUrl: string;
+      token: string;
+    }) => Promise<void>;
+    estado: (testId: string) => Promise<{ aberto: boolean }>;
+    /** `status` é `null` quando a API não respondeu ao fechamento. */
+    aoFechar: (callback: (aviso: { testId: string; status: PlayStatus | null }) => void) => () => void;
   };
   update: {
     check: () => Promise<{ version: string; file: string } | null>;

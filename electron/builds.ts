@@ -1,4 +1,4 @@
-import { app, net, shell, type WebContents } from 'electron';
+import { app, net, type WebContents } from 'electron';
 import { createHash } from 'node:crypto';
 import { createWriteStream } from 'node:fs';
 import { mkdir, rm } from 'node:fs/promises';
@@ -11,8 +11,8 @@ import path from 'node:path';
  * `userData/builds/<teste>/`, com o progresso avisado ao renderer. No fim o
  * sha256 é conferido com o que a API mandou: arquivo diferente é apagado.
  *
- * Abrir é só mostrar o arquivo na pasta: o app nunca executa sozinho uma build
- * que veio de terceiros — quem roda é o tester, com o clique dele.
+ * Quem abre o jogo é `jogo.ts`, e só com o clique do tester no "Iniciar Jogo!":
+ * o app nunca executa sozinho uma build que veio de terceiros.
  */
 export interface PedidoDeBuild {
   testId: string;
@@ -22,7 +22,7 @@ export interface PedidoDeBuild {
   sha256: string | null;
 }
 
-const pastaDasBuilds = () => path.join(app.getPath('userData'), 'builds');
+export const pastaDasBuilds = () => path.join(app.getPath('userData'), 'builds');
 
 export async function baixarBuild(pedido: PedidoDeBuild, janela: WebContents): Promise<string> {
   if (!/^[\w-]+$/.test(pedido.testId)) throw new Error('Teste inválido.');
@@ -73,12 +73,4 @@ export async function baixarBuild(pedido: PedidoDeBuild, janela: WebContents): P
 
   janela.send('build:progresso', { testId: pedido.testId, fracao: 1 });
   return destino;
-}
-
-/** Mostra a build baixada na pasta. Só vale para arquivos dentro de `userData/builds`. */
-export function mostrarBuild(caminho: string): void {
-  const base = pastaDasBuilds() + path.sep;
-  const alvo = path.resolve(caminho);
-  if (!alvo.startsWith(base)) throw new Error('Arquivo fora da pasta das builds.');
-  shell.showItemInFolder(alvo);
 }

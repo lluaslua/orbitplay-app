@@ -35,8 +35,26 @@ const orbitApi = {
         ipcRenderer.removeListener('build:progresso', ouvinte);
       };
     },
-    /** Mostra o arquivo baixado na pasta — o app não executa a build sozinho. */
-    mostrar: (caminho: string): Promise<void> => ipcRenderer.invoke('build:mostrar', caminho),
+  },
+  /** O jogo do teste: abre a build baixada e avisa quando ela fecha (Tela 17). */
+  jogo: {
+    abrir: (pedido: {
+      testId: string;
+      participationId: string;
+      fileName: string;
+      comControle: boolean;
+      apiUrl: string;
+      token: string;
+    }): Promise<void> => ipcRenderer.invoke('jogo:abrir', pedido),
+    estado: (testId: string): Promise<{ aberto: boolean }> => ipcRenderer.invoke('jogo:estado', testId),
+    /** `status` é o `PlayStatus` que a API devolveu ao fechar, ou `null` se ela não respondeu. */
+    aoFechar: (callback: (aviso: { testId: string; status: unknown }) => void) => {
+      const ouvinte = (_e: Electron.IpcRendererEvent, aviso: { testId: string; status: unknown }) => callback(aviso);
+      ipcRenderer.on('jogo:fechou', ouvinte);
+      return () => {
+        ipcRenderer.removeListener('jogo:fechou', ouvinte);
+      };
+    },
   },
   update: {
     /** `null` quando não há feed ou a versão instalada já é a mais recente. */

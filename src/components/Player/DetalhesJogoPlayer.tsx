@@ -369,6 +369,7 @@ const MOTIVO_INDISPONIVEL: Record<UnavailableReason, string> = {
   NO_SLOTS: 'Sem vagas',
   CLOSED: 'Encerrado',
   ELITE_ONLY: 'Exclusivo ELITE',
+  ABANDONED: 'Você desistiu deste teste',
 };
 
 /**
