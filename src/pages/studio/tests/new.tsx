@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { PageHeading } from '@/components/Common/PageHeading';
+import { BloquearRetorno } from '@/components/Common/BloquearRetorno';
 import {
   FormasDePagamento,
   ResumoCompra,
@@ -146,6 +147,7 @@ export default function StudioNewTestPage() {
 
   return (
     <div className="flex flex-col gap-6">
+      <BloquearRetorno />
       <PageHeading
         trilha={[
           { label: 'Home', to: ROUTES.studio.home },

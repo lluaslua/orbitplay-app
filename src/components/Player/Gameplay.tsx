@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Navigate, useNavigate, useParams } from 'react-router-dom';
 import { Button } from '@/components/UI';
+import { BloquearRetorno } from '@/components/Common/BloquearRetorno';
 import {
   useAbrirJogo,
   useAoFecharJogo,
@@ -100,6 +101,7 @@ export function Gameplay() {
    */
   return (
     <div className="fixed inset-0 top-10 overflow-hidden bg-orbit-bg">
+      <BloquearRetorno />
       {/*
         Área do jogo. Num app real é a janela da build; aqui fica o fundo do
         arquivo, que é o que o Figma mostra enquanto a build não abriu.

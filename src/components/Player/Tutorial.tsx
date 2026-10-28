@@ -7,6 +7,7 @@ import type { BuildDownloadInfo } from '@/types';
 import { STORAGE_KEYS, TUTORIAL_OBSERVAR, TUTORIAL_DICAS, ROUTES } from '@/utils/constants';
 import { cn } from '@/utils/helpers';
 import { Button } from '@/components/UI';
+import { BloquearRetorno } from '@/components/Common/BloquearRetorno';
 
 /**
  * TELA 16 — Tutorial. Figma: `224:7273`, `224:7334`, `224:7409`, `224:7481` e
@@ -58,7 +59,7 @@ export function Tutorial() {
   }
 
   function sair() {
-    navigate(-1);
+    navigate(participacao ? ROUTES.player.game(participacao.gameId) : ROUTES.player.home, { replace: true });
   }
 
   async function avancar() {
@@ -97,6 +98,7 @@ export function Tutorial() {
 
   return (
     <div className="flex min-h-full items-center justify-center p-8">
+      <BloquearRetorno />
       <div className="flex w-[1140px] max-w-full flex-col gap-6 rounded-2xl border border-orbit-dim bg-orbit-bg px-6 pb-6 pt-4">
         {/* Cabeçalho: a última etapa esconde o título, como no arquivo */}
         <div className="flex items-center justify-end pl-6 pr-4">
