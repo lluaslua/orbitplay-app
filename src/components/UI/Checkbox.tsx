@@ -8,7 +8,8 @@ import { cn } from '@/utils/helpers';
  * o mesmo componente aparece na prancha Table, node 151:7789/151:7791).
  *
  * Valores do arquivo:
- *   Caixa 24px · raio **8px** (não é circular nem 4px)
+ *   Caixa 24px · raio **8px** (não é circular nem 4px) — em px de propósito:
+ *   `rounded-lg` aqui é `var(--radius)` = 12px, que numa caixa de 24 vira círculo
  *   Desmarcado  fundo branco · borda 2px #C5C9CE
  *   Marcado     fundo #2563EB · tick branco
  *   Desabilitado usa a rampa Claro/Médio
@@ -20,8 +21,8 @@ export const Checkbox = React.forwardRef<
   <CheckboxPrimitive.Root
     ref={ref}
     className={cn(
-      'peer inline-flex size-6 shrink-0 items-center justify-center rounded-lg border-2 border-white/25 bg-white/5 transition-colors orbit-focus-ring',
-      'disabled:cursor-not-allowed disabled:border-white/10 disabled:bg-white/5',
+      'peer inline-flex size-6 shrink-0 items-center justify-center rounded-[8px] border-2 border-orbit-medium bg-white transition-colors orbit-focus-ring',
+      'disabled:cursor-not-allowed disabled:border-orbit-medium disabled:bg-orbit-light',
       'data-[state=checked]:border-orbit-blue data-[state=checked]:bg-orbit-blue data-[state=checked]:text-white',
       className,
     )}

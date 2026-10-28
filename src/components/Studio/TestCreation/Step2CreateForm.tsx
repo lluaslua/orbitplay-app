@@ -1,18 +1,25 @@
 import { useRef, useState, type ChangeEvent } from 'react';
-import { Eye, Plus, Trash2 } from 'lucide-react';
 import { Checkbox, FieldError, IconButton, Input, Radio, SelectField } from '@/components/UI';
 import { useTestStore } from '@/stores/testStore';
 import type { FormQuestion, QuestionType } from '@/types';
-import { QUESTION_TYPES } from '@/utils/constants';
 import { cn } from '@/utils/helpers';
 import { reduzirImagem } from '@/utils/imagem';
+import { DropdownTipoPergunta } from './DropdownTipoPergunta';
+
+/** "Escolha" e "Múltipla escolha" nascem com as três opções em branco do arquivo. */
+const OPCOES_INICIAIS = ['', '', ''];
+
+const temOpcoes = (tipo: QuestionType) => tipo === 'MULTIPLE_CHOICE' || tipo === 'CHECKBOXES';
 
 /**
- * ETAPA 2 — A avaliação do seu teste. Figma: `319:7290`, card `319:7695`.
+ * ETAPA 2 — A avaliação do seu teste. Figma: `319:7290`, cards `319:7695`
+ * (Resposta curta), `319:7878` (Escolha), `1192:11225` (Múltipla escolha) e
+ * `1192:11343` (Escala linear).
  *
- * Cada pergunta é um card: linha de tipo (seletor + botão de imagem +
- * "Obrigatória"), divisória, o enunciado, o campo de resposta, outra divisória
- * e a fileira de ações. Os campos têm 390px fixos, como no arquivo.
+ * Cada pergunta é um card de borda branca, raio 24 e respiro 24, com tudo a 24
+ * de distância: a fileira de tipo (menu `1192:11096` + botão de imagem +
+ * "Obrigatória"), divisória, o enunciado, as opções ou a escala, outra
+ * divisória e as ações à direita. Os campos têm 390px fixos, como no arquivo.
  *
  * O botão de imagem anexa uma imagem à pergunta. O arquivo só desenha o botão,
  * então a imagem escolhida entra logo abaixo do enunciado, na largura dos
@@ -52,27 +59,7 @@ export function Step2CreateForm() {
         />
       ))}
 
-      <div className="flex items-center gap-6">
-        <button
-          type="button"
-          onClick={() => addQuestion({})}
-          className="flex items-center gap-1 text-button text-orbit-blue hover:underline"
-        >
-          Adicionar pergunta
-          <Plus className="size-6" />
-        </button>
-
-        <span className="flex-1" />
-
-        <button
-          type="button"
-          className="flex items-center gap-1 text-button text-orbit-blue hover:underline"
-          title="Ainda não disponível"
-        >
-          Pré-visualizar
-          <Eye className="size-6" />
-        </button>
-      </div>
+      <AcaoPergunta rotulo="Adicionar pergunta" icone="question-add" onClick={() => addQuestion({})} />
     </div>
   );
 }
@@ -113,36 +100,25 @@ function CardPergunta({
 
   return (
     <section className="flex flex-col items-start gap-6 rounded-3xl border border-white p-6">
-      {/* Tipo · imagem · obrigatória */}
+      {/* Tipo · imagem · obrigatória — centrados na altura do campo com o rótulo, como no arquivo. */}
       <div className="flex items-center gap-6">
-        <SelectField
-          label="Tipo da pergunta"
-          required
+        <DropdownTipoPergunta
           className="w-[390px]"
-          value={pergunta.type}
-          onChange={(event) => {
-            const type = event.target.value as QuestionType;
-            const precisaOpcoes = type === 'MULTIPLE_CHOICE' || type === 'CHECKBOXES';
+          valor={pergunta.type}
+          onChange={(type) =>
             onChange({
               type,
-              options: precisaOpcoes && !pergunta.options?.length ? ['', ''] : pergunta.options,
-            });
-          }}
-        >
-          {QUESTION_TYPES.map((item) => (
-            <option key={item.id} value={item.id} className="bg-orbit-bg">
-              {item.label}
-              {item.isNew ? ' (Nova)' : ''}
-            </option>
-          ))}
-        </SelectField>
+              options: temOpcoes(type) && !pergunta.options?.length ? OPCOES_INICIAIS : pergunta.options,
+            })
+          }
+        />
 
         <IconButton
           aria-label={
             pergunta.imageUrl ? 'Trocar a imagem da pergunta' : 'Adicionar imagem à pergunta'
           }
           onClick={escolherImagem}
-          className="mt-6 shrink-0"
+          className="shrink-0"
         >
           <img src="./icons/figma/question-image.svg" alt="" className="size-6" />
         </IconButton>
@@ -154,7 +130,7 @@ function CardPergunta({
           onChange={receberImagem}
         />
 
-        <label className="mt-6 flex h-[46px] shrink-0 cursor-pointer items-center gap-2">
+        <label className="flex h-[46px] shrink-0 cursor-pointer items-center gap-2">
           <Checkbox
             checked={pergunta.required}
             onCheckedChange={(checked) => onChange({ required: checked === true })}
@@ -163,7 +139,7 @@ function CardPergunta({
         </label>
       </div>
 
-      <hr className="w-full border-orbit-border" />
+      <hr className="w-full border-orbit-dim" />
 
       <Input
         label="Pergunta"
@@ -182,7 +158,7 @@ function CardPergunta({
             className="max-h-[390px] w-full rounded-xl object-cover"
           />
           <div className="flex items-start gap-6">
-            <AcaoPergunta rotulo="Trocar" icone="question-image" onClick={escolherImagem} tingido />
+            <AcaoPergunta rotulo="Trocar" icone="question-image" onClick={escolherImagem} />
             <AcaoPergunta
               rotulo="Remover"
               icone="question-trash"
@@ -195,7 +171,7 @@ function CardPergunta({
 
       {erroImagem && <FieldError message={erroImagem} />}
 
-      {(pergunta.type === 'MULTIPLE_CHOICE' || pergunta.type === 'CHECKBOXES') && (
+      {temOpcoes(pergunta.type) && (
         <OpcoesEditor
           opcoes={pergunta.options ?? []}
           modo={pergunta.type === 'MULTIPLE_CHOICE' ? 'radio' : 'checkbox'}
@@ -207,9 +183,9 @@ function CardPergunta({
         <EscalaLinearEditor pergunta={pergunta} onChange={onChange} />
       )}
 
-      <hr className="w-full border-orbit-border" />
+      <hr className="w-full border-orbit-dim" />
 
-      <div className="flex items-start gap-6">
+      <div className="flex w-full items-start justify-end gap-6">
         <AcaoPergunta rotulo="Subir" icone="question-up" onClick={onSubir} />
         <AcaoPergunta rotulo="Descer" icone="question-down" onClick={onDescer} />
         <AcaoPergunta rotulo="Duplicar" icone="question-copy" onClick={onDuplicar} />
@@ -220,9 +196,10 @@ function CardPergunta({
 }
 
 /**
- * Lista de opções de "Escolha" (radio) e "Múltipla Escolha" (checkbox) —
- * mesmo círculo/quadrado do design system, só ilustrativo aqui: quem edita é
- * o campo de texto ao lado, não o próprio indicador.
+ * Opções de "Escolha" (rádio) e "Múltipla escolha" (caixa) — `Radiobox with
+ * label` do arquivo: indicador, campo de 390 e a lixeira, a 8 um do outro, uma
+ * linha a cada 24. O indicador é só ilustrativo e fica com a cara do
+ * desmarcado: quem edita é o campo de texto ao lado.
  */
 function OpcoesEditor({
   opcoes,
@@ -242,10 +219,16 @@ function OpcoesEditor({
   }
 
   return (
-    <div className="flex flex-col gap-3">
+    <>
       {opcoes.map((opcao, indice) => (
-        <div key={indice} className="flex items-center gap-3">
-          {modo === 'radio' ? <Radio disabled /> : <Checkbox disabled />}
+        <div key={indice} className="flex items-center gap-2">
+          <span aria-hidden className="pointer-events-none flex">
+            {modo === 'radio' ? (
+              <Radio tabIndex={-1} checked={false} readOnly />
+            ) : (
+              <Checkbox tabIndex={-1} checked={false} />
+            )}
+          </span>
           <Input
             className="w-[390px]"
             value={opcao}
@@ -257,22 +240,15 @@ function OpcoesEditor({
             type="button"
             onClick={() => remover(indice)}
             aria-label={`Remover opção ${indice + 1}`}
-            className="text-orbit-error-l orbit-focus-ring"
+            className="shrink-0 orbit-focus-ring"
           >
-            <Trash2 className="size-5" />
+            <img src="./icons/figma/question-trash.svg" alt="" className="size-6" />
           </button>
         </div>
       ))}
 
-      <button
-        type="button"
-        onClick={() => onChange([...opcoes, ''])}
-        className="flex w-fit items-center gap-1 text-button text-orbit-blue hover:underline"
-      >
-        Adicionar opção
-        <Plus className="size-5" />
-      </button>
-    </div>
+      <AcaoPergunta rotulo="Adicionar opção" icone="question-add" onClick={() => onChange([...opcoes, ''])} />
+    </>
   );
 }
 
@@ -280,6 +256,10 @@ function OpcoesEditor({
 const ESCALA_MIN_OPCOES = [0, 1];
 const ESCALA_MAX_OPCOES = [2, 3, 4, 5, 6, 7, 8, 9, 10];
 
+/**
+ * "Escala linear" (`1192:11343`): os dois limites em campos de 390 com o "a"
+ * em negrito entre eles, e embaixo o rótulo de cada ponta.
+ */
 function EscalaLinearEditor({
   pergunta,
   onChange,
@@ -288,10 +268,10 @@ function EscalaLinearEditor({
   onChange: (patch: Partial<FormQuestion>) => void;
 }) {
   return (
-    <div className="flex flex-col gap-6">
-      <div className="flex items-center gap-3">
+    <>
+      <div className="flex items-center gap-6">
         <SelectField
-          className="w-[100px]"
+          className="w-[390px]"
           aria-label="Valor inicial da escala"
           value={pergunta.scaleMin ?? 1}
           onChange={(event) => onChange({ scaleMin: Number(event.target.value) })}
@@ -303,10 +283,10 @@ function EscalaLinearEditor({
           ))}
         </SelectField>
 
-        <span className="text-body text-white">a</span>
+        <span className="text-body-bold text-white">a</span>
 
         <SelectField
-          className="w-[100px]"
+          className="w-[390px]"
           aria-label="Valor final da escala"
           value={pergunta.scaleMax ?? 5}
           onChange={(event) => onChange({ scaleMax: Number(event.target.value) })}
@@ -319,7 +299,7 @@ function EscalaLinearEditor({
         </SelectField>
       </div>
 
-      <div className="flex items-center gap-6">
+      <div className="flex items-start gap-6">
         <Input
           label="Primeiro marcador"
           className="w-[390px]"
@@ -335,26 +315,26 @@ function EscalaLinearEditor({
           onChange={(event) => onChange({ scaleMaxLabel: event.target.value })}
         />
       </div>
-    </div>
+    </>
   );
 }
 
+/**
+ * Link de ação com ícone à direita — "Subir", "Descer", "Duplicar",
+ * "Deletar", "Adicionar opção", "Adicionar pergunta". O ícone é pintado com a
+ * cor do texto, por máscara, para o desabilitado ficar todo no #585D68 do
+ * arquivo (o "Descer" da primeira pergunta em `319:7695`).
+ */
 function AcaoPergunta({
   rotulo,
   icone,
   onClick,
   destrutiva,
-  tingido,
 }: {
   rotulo: string;
   icone: string;
   onClick?: () => void;
   destrutiva?: boolean;
-  /**
-   * Pinta o ícone com a cor do texto, por máscara. O `pic_2_fill` do arquivo
-   * só existe escuro — é o do botão cinza —, e aqui ele acompanha o azul.
-   */
-  tingido?: boolean;
 }) {
   const src = `./icons/figma/${icone}.svg`;
 
@@ -364,25 +344,21 @@ function AcaoPergunta({
       onClick={onClick}
       disabled={!onClick}
       className={cn(
-        'flex items-center gap-1 text-button hover:underline disabled:cursor-not-allowed disabled:opacity-40',
+        'flex w-fit items-center gap-1 text-button hover:underline disabled:cursor-not-allowed disabled:text-orbit-faint disabled:no-underline',
         destrutiva ? 'text-orbit-error-l' : 'text-orbit-blue',
       )}
     >
       {rotulo}
-      {tingido ? (
-        <span
-          aria-hidden
-          className="size-6 bg-current"
-          style={{
-            WebkitMaskImage: `url(${src})`,
-            maskImage: `url(${src})`,
-            WebkitMaskSize: '100% 100%',
-            maskSize: '100% 100%',
-          }}
-        />
-      ) : (
-        <img src={src} alt="" className="size-6" />
-      )}
+      <span
+        aria-hidden
+        className="size-6 shrink-0 bg-current"
+        style={{
+          WebkitMaskImage: `url(${src})`,
+          maskImage: `url(${src})`,
+          WebkitMaskSize: '100% 100%',
+          maskSize: '100% 100%',
+        }}
+      />
     </button>
   );
 }

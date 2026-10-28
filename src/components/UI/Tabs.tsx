@@ -85,13 +85,18 @@ export const TabsTrigger = React.forwardRef<
       )}
       {...props}
     >
-      <span className="whitespace-nowrap px-3 text-center text-[16px] leading-none">{children}</span>
+      <span className="whitespace-nowrap px-3 text-center text-[16px] leading-5">{children}</span>
 
-      {/* Barra inferior: 1px no inativo, 2px quando há ênfase */}
+      {/*
+        Barra inferior: 1px no inativo, 2px quando há ênfase. O inativo ganha
+        1px de margem (gap 17 no arquivo) para a aba ter sempre 50px e o
+        rótulo não pular ao trocar de estado.
+      */}
       <span
         aria-hidden
         className={cn(
-          'h-px w-full transition-all',
+          'mt-px h-px w-full transition-all',
+          'group-hover:mt-0 group-data-[state=active]:mt-0 group-disabled:mt-0',
           dark
             ? [
                 'bg-white',

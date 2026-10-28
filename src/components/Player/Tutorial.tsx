@@ -1,6 +1,10 @@
 import { useEffect, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
-import { TUTORIAL_OBSERVAR, TUTORIAL_DICAS, ROUTES } from '@/utils/constants';
+import { Navigate, useNavigate, useParams } from 'react-router-dom';
+import { baixarArquivo, urlDaApi } from '@/lib/api';
+import { useAbrirJogo, useBuildDoTeste, useConsentimento, useSessionReview } from '@/hooks/usePlayer';
+import { useSessaoStore } from '@/stores/sessaoStore';
+import type { BuildDownloadInfo } from '@/types';
+import { STORAGE_KEYS, TUTORIAL_OBSERVAR, TUTORIAL_DICAS, ROUTES } from '@/utils/constants';
 import { cn } from '@/utils/helpers';
 import { Button } from '@/components/UI';
 
@@ -13,10 +17,10 @@ import { Button } from '@/components/UI';
  * download — com a build ainda baixando o botão fica desabilitado, e ao chegar
  * a 100% a barra fica verde e aparece "Rever tutorial".
  *
- * O download é simulado: sem backend, a barra avança sozinha para que a última
- * etapa saia do estado desabilitado como no desenho.
+ * Enquanto o tester assiste, a build do teste baixa de verdade: no app desktop
+ * vai para a pasta do OrbitPlay; no navegador, para os downloads. "Iniciar
+ * Jogo!" aceita o que o teste exige, começa a sessão e, no desktop, abre o jogo.
  */
-const DURACAO_DOWNLOAD_MS = 18_000;
 
 /** Vídeo do tutorial — o `v=` da URL que o YouTube usa como id do embed. */
 const VIDEO_TUTORIAL = '5E_m9mv83k0';
@@ -26,29 +30,70 @@ export function Tutorial() {
   const navigate = useNavigate();
 
   const [etapa, setEtapa] = useState(0);
-  const [progresso, setProgresso] = useState(0.08);
+  const sessao = useSessionReview(testId);
+  const participacao = sessao.data;
+  const emAndamento = participacao?.status === 'IN_PROGRESS';
+  const build = useBuildDoTeste(emAndamento ? testId : undefined);
+  // Participação em andamento sem build (o A/B de imagens) não tem o que baixar.
+  const semBuild = emAndamento && build.isError;
+  const download = useDownloadDaBuild(testId, build.data, semBuild);
+  const consentir = useConsentimento();
+  const abrirJogo = useAbrirJogo();
+  const iniciarSessao = useSessaoStore((state) => state.iniciar);
 
-  useEffect(() => {
-    const inicio = Date.now();
-    const timer = window.setInterval(() => {
-      const decorrido = (Date.now() - inicio) / DURACAO_DOWNLOAD_MS;
-      setProgresso(Math.min(1, 0.08 + decorrido * 0.92));
-    }, 200);
-
-    return () => window.clearInterval(timer);
-  }, []);
-
-  const pronto = progresso >= 1;
+  const { progresso } = download;
+  const pronto = download.estado === 'pronto';
   const ultima = etapa === 3;
+
+  // Teste sem build (o A/B de imagens): não há o que baixar nem jogo para rodar, vai direto às perguntas.
+  if (testId && emAndamento && build.isLoading) return null;
+  if (testId && semBuild) return <Navigate to={ROUTES.player.summary(testId)} replace />;
+
+  // Desistiu do teste: não há o que retomar.
+  if (participacao?.status === 'ABANDONED') return <Navigate to={ROUTES.player.game(participacao.gameId)} replace />;
+
+  // Teste já enviado: o tutorial não tem mais o que fazer, o lugar é o resultado.
+  if (participacao && !emAndamento && testId) {
+    return <Navigate to={ROUTES.player.result(testId)} replace />;
+  }
 
   function sair() {
     navigate(-1);
   }
 
-  function avancar() {
+  async function avancar() {
     if (!ultima) return setEtapa((atual) => atual + 1);
-    if (pronto && testId) navigate(ROUTES.player.gameplay(testId));
+    if (!pronto || !testId || !participacao) return;
+
+    try {
+      // Clicar em "Iniciar Jogo!" é aceitar o que o teste pede: gravação, microfone e webcam.
+      await consentir.mutateAsync({
+        participationId: participacao.id,
+        consentimento: { recording: true, microphone: true, webcam: true },
+      });
+    } catch {
+      return;
+    }
+    iniciarSessao(testId, participacao.id);
+    // Sem build não há jogo para rodar: vai direto às perguntas.
+    if (semBuild) return navigate(ROUTES.player.summary(testId));
+    // No desktop o jogo abre aqui e o app passa a acompanhar; no navegador a build ficou nos downloads.
+    if (window.orbit && build.data) {
+      try {
+        await abrirJogo.mutateAsync({ participationId: participacao.id, build: build.data });
+      } catch {
+        return;
+      }
+    }
+    navigate(ROUTES.player.gameplay(testId));
   }
+
+  const aviso =
+    (sessao.error as { message?: string } | null)?.message ??
+    download.erro ??
+    (consentir.error as { message?: string } | null)?.message ??
+    (abrirJogo.error as { message?: string } | null)?.message ??
+    null;
 
   return (
     <div className="flex min-h-full items-center justify-center p-8">
@@ -63,7 +108,7 @@ export function Tutorial() {
           </button>
         </div>
 
-        {etapa === 0 && <EtapaVideo />}
+        {etapa === 0 && <EtapaVideo comBuild={!semBuild} />}
         {etapa === 1 && <EtapaObservar />}
         {etapa === 2 && <EtapaDicas />}
         {etapa === 3 && <EtapaPronto />}
@@ -106,13 +151,26 @@ export function Tutorial() {
             variant="nightfall"
             onClick={avancar}
             disabled={ultima && !pronto}
+            loading={consentir.isPending || abrirJogo.isPending}
             className={cn(ultima && !pronto && 'disabled:bg-orbit-faint disabled:text-white')}
           >
             {ultima ? 'Iniciar Jogo!' : 'Próximo'}
           </Button>
         </div>
 
-        {/* Download da build */}
+        {aviso && (
+          <p className="flex items-center justify-end gap-3 text-body text-orbit-error-l">
+            {aviso}
+            {download.estado === 'erro' && (
+              <button type="button" onClick={download.tentarDeNovo} className="text-button text-orbit-blue hover:underline">
+                Tentar de novo
+              </button>
+            )}
+          </p>
+        )}
+
+        {/* Download da build — só existe quando o teste tem build (o A/B de imagens não tem) */}
+        {!semBuild && (
         <div className="flex items-center gap-1">
           <span className="font-label text-[14px] font-normal leading-[1.1] text-white">
             Baixando a build
@@ -127,9 +185,98 @@ export function Tutorial() {
             />
           </span>
         </div>
+        )}
       </div>
     </div>
   );
+}
+
+/**
+ * Download da build do teste. No Electron o main grava em partes no disco e
+ * avisa o progresso; no navegador o arquivo vem inteiro e é salvo nos downloads.
+ * Sair do tutorial cancela (no navegador) ou para de acompanhar (no desktop).
+ */
+const baixandoNoDesktop = new Map<string, Promise<string>>();
+
+function useDownloadDaBuild(testId: string | undefined, info: BuildDownloadInfo | undefined, semBuild: boolean) {
+  const [progresso, setProgresso] = useState(0);
+  const [estado, setEstado] = useState<'baixando' | 'pronto' | 'erro'>('baixando');
+  const [erro, setErro] = useState<string | null>(null);
+  const [tentativa, setTentativa] = useState(0);
+
+  useEffect(() => {
+    if (semBuild) {
+      setProgresso(1);
+      setEstado('pronto');
+      return;
+    }
+    if (!testId || !info) return;
+
+    let ativo = true;
+    const falhou = (motivo: unknown) => {
+      if (!ativo) return;
+      setErro((motivo as { message?: string })?.message ?? 'Não foi possível baixar a build.');
+      setEstado('erro');
+    };
+    setEstado('baixando');
+    setErro(null);
+    setProgresso(0);
+
+    const orbit = window.orbit;
+    if (orbit) {
+      const parar = orbit.builds.aoProgredir((aviso) => {
+        if (ativo && aviso.testId === testId) setProgresso(aviso.fracao);
+      });
+      // Um download por teste: remontar a tela (ou o StrictMode) não abre um segundo no mesmo arquivo.
+      let baixando = baixandoNoDesktop.get(testId);
+      if (!baixando) {
+        baixando = orbit.builds
+          .baixar({
+            testId,
+            url: urlDaApi(info.downloadPath),
+            token: localStorage.getItem(STORAGE_KEYS.token),
+            fileName: info.fileName,
+            sha256: info.sha256,
+          })
+          .finally(() => baixandoNoDesktop.delete(testId));
+        baixandoNoDesktop.set(testId, baixando);
+      }
+      baixando.then(() => {
+        if (!ativo) return;
+        setProgresso(1);
+        setEstado('pronto');
+      }, falhou);
+
+      return () => {
+        ativo = false;
+        parar();
+      };
+    }
+
+    const controle = new AbortController();
+    baixarArquivo(info.downloadPath, {
+      onProgresso: (fracao) => ativo && setProgresso(fracao),
+      totalEsperado: info.sizeMb * 1024 * 1024,
+      signal: controle.signal,
+    }).then((arquivo) => {
+      if (!ativo) return;
+      const url = URL.createObjectURL(arquivo);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = info.fileName;
+      link.click();
+      URL.revokeObjectURL(url);
+      setProgresso(1);
+      setEstado('pronto');
+    }, (motivo) => !controle.signal.aborted && falhou(motivo));
+
+    return () => {
+      ativo = false;
+      controle.abort();
+    };
+  }, [testId, info, semBuild, tentativa]);
+
+  return { progresso, estado, erro, tentarDeNovo: () => setTentativa((atual) => atual + 1) };
 }
 
 function Bolinhas({ total, atual }: { total: number; atual: number }) {
@@ -149,11 +296,11 @@ function Bolinhas({ total, atual }: { total: number; atual: number }) {
 }
 
 /** Etapa 1 — o vídeo de como fazer um bom playtest. */
-function EtapaVideo() {
+function EtapaVideo({ comBuild }: { comBuild: boolean }) {
   return (
     <>
       <p className="w-full text-subtitle text-white">
-        Enquanto a build do jogo está baixando, você vai passar por um breve tutorial. Assim,
+        {comBuild ? 'Enquanto a build do jogo está baixando, você vai passar' : 'Você vai passar'} por um breve tutorial. Assim,
         aprende como testar da melhor forma e ganhar mais pontos de feedback!
       </p>
 

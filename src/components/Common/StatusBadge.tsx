@@ -32,6 +32,7 @@ const PARTICIPATION_VARIANTS: Record<ParticipationStatus, Variant> = {
   COMPLETED: 'success',
   UNAVAILABLE: 'neutral',
   REJECTED: 'error',
+  ABANDONED: 'neutral',
 };
 
 const REWARD_VARIANTS: Record<RewardStatus, Variant> = {

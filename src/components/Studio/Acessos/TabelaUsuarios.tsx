@@ -1,6 +1,5 @@
 import { useState } from 'react';
-import { KeyRound, Lock, LockOpen, Trash2, UserPen } from 'lucide-react';
-import { Switch, Table, TableHeader, Tag, UserAvatar } from '@/components/UI';
+import { Switch, Table, TableHeader, TableRow, Tag, UserAvatar } from '@/components/UI';
 import { useAtualizarUsuario } from '@/hooks/useAcessos';
 import type { AccessPermissions, AccessUser, UserStatus } from '@/types';
 import { USER_STATUS_LABELS } from '@/utils/constants';
@@ -47,10 +46,7 @@ export function TabelaUsuarios({ usuarios }: { usuarios: AccessUser[] }) {
             const suspenso = usuario.status === 'INACTIVE';
 
             return (
-              <div
-                key={usuario.id}
-                className="flex h-16 items-center gap-6 px-6 text-graphic text-white"
-              >
+              <TableRow key={usuario.id} className="h-16 py-0 text-graphic text-white">
                 <span className="flex min-w-0 flex-1 items-center gap-2">
                   <UserAvatar name={usuario.name} src={usuario.avatarUrl} className="size-[26px]" />
                   <span className="truncate">{usuario.name}</span>
@@ -88,28 +84,29 @@ export function TabelaUsuarios({ usuarios }: { usuarios: AccessUser[] }) {
                   <MenuAcoes
                     rotulo={`Ações de ${usuario.name}`}
                     acoes={[
-                      { rotulo: 'Editar perfil', icone: <UserPen /> },
+                      { rotulo: 'Editar perfil', icone: './icons/figma/perfil-conta.svg' },
                       {
                         rotulo: 'Redefinir senha',
-                        icone: <KeyRound />,
+                        icone: './icons/figma/acessos/menu-senha.svg',
                         onSelect: () => setPedido({ tipo: 'senha', usuario }),
                       },
                       {
+                        // O frame só desenha "Suspender acesso"; o restabelecer usa o mesmo cadeado.
                         rotulo: suspenso ? 'Restabelecer acesso' : 'Suspender acesso',
-                        icone: suspenso ? <LockOpen /> : <Lock />,
+                        icone: './icons/figma/acessos/menu-suspender.svg',
                         onSelect: () =>
                           setPedido({ tipo: suspenso ? 'restabelecer' : 'suspender', usuario }),
                       },
                       {
                         rotulo: 'Excluir usuário',
-                        icone: <Trash2 />,
+                        icone: './icons/figma/acessos/menu-excluir.svg',
                         perigo: true,
                         onSelect: () => setPedido({ tipo: 'excluir', usuario }),
                       },
                     ]}
                   />
                 </span>
-              </div>
+              </TableRow>
             );
           })}
         </div>

@@ -5,24 +5,31 @@ import { ConfirmacaoNovoJogo } from '@/components/Studio/GameCreation/Confirmaca
 import { Step1Informacoes } from '@/components/Studio/GameCreation/Step1Informacoes';
 import { Step2Midias } from '@/components/Studio/GameCreation/Step2Midias';
 import { Step3Permissoes } from '@/components/Studio/GameCreation/Step3Permissoes';
-import { isNovoJogoStepValid, useNovoJogoDraft } from '@/components/Studio/GameCreation/useNovoJogoDraft';
+import {
+  acessoDoRascunho,
+  isNovoJogoStepValid,
+  payloadDoRascunho,
+  useNovoJogoDraft,
+} from '@/components/Studio/GameCreation/useNovoJogoDraft';
 import { Button, Card, Stepper } from '@/components/UI';
-import { useCreateGame } from '@/hooks/useGames';
-import type { Genre, Platform } from '@/types';
+import { useFinalizarNovoJogo } from '@/hooks/useGames';
+import type { ApiError } from '@/types';
 import { NEW_GAME_STEPS, ROUTES } from '@/utils/constants';
 
 const ULTIMA_ETAPA = 3;
 
 /**
  * TELA — Novo jogo. As três etapas seguem os prints (Informações, Mídias,
- * Permissões); "Finalizar" cria o jogo de fato via `useCreateGame` e mostra a
- * confirmação — sem bolinha no stepper, igual à saída de Novo teste.
+ * Permissões); "Finalizar" cria o jogo na API via `useFinalizarNovoJogo` e
+ * mostra a confirmação — sem bolinha no stepper, igual à saída de Novo teste.
  */
 export default function StudioNewGamePage() {
   const { draft, update } = useNovoJogoDraft();
   const [currentStep, setCurrentStep] = useState(1);
   const [maxStepReached, setMaxStepReached] = useState(1);
-  const createGame = useCreateGame();
+  const createGame = useFinalizarNovoJogo();
+  // O jogo já criado numa tentativa que falhou depois: a próxima atualiza em vez de criar outro.
+  const [gameIdCriado, setGameIdCriado] = useState<string | null>(null);
 
   function irPara(etapa: number) {
     setCurrentStep(etapa);
@@ -31,16 +38,15 @@ export default function StudioNewGamePage() {
 
   function finalizar() {
     createGame.mutate({
-      name: draft.name,
-      description: draft.shortDescription,
-      shortDescription: draft.shortDescription,
-      bannerUrl: draft.coverUrl,
-      genres: draft.genres as Genre[],
-      platforms: draft.platforms as Platform[],
+      payload: payloadDoRascunho(draft),
+      acesso: acessoDoRascunho(draft.permissions),
+      gameId: gameIdCriado,
+      aoCriar: setGameIdCriado,
     });
   }
 
   const criado = createGame.data;
+  const erro = createGame.error as ApiError | null;
   const podeAvancar = isNovoJogoStepValid(currentStep, draft);
 
   return (
@@ -75,10 +81,17 @@ export default function StudioNewGamePage() {
               {currentStep === 3 && <Step3Permissoes draft={draft} onChange={update} />}
             </div>
 
-            {createGame.isError && (
-              <p className="rounded-xl border border-orbit-error bg-orbit-error-bg p-3 text-graphic text-orbit-error">
-                Não foi possível criar o jogo.
-              </p>
+            {erro && (
+              <div className="rounded-xl border border-orbit-error bg-orbit-error-bg p-3 text-graphic text-orbit-error">
+                <p>{erro.message ?? 'Não foi possível criar o jogo.'}</p>
+                {erro.fields && (
+                  <ul className="mt-1 list-inside list-disc">
+                    {Object.values(erro.fields).map((mensagem) => (
+                      <li key={mensagem}>{mensagem}</li>
+                    ))}
+                  </ul>
+                )}
+              </div>
             )}
 
             <div className="flex items-center gap-6">

@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { PageHeading } from '@/components/Common/PageHeading';
 import {
@@ -12,9 +12,9 @@ import { Step4Budget } from '@/components/Studio/TestCreation/Step4Budget';
 import { Step5Confirmation } from '@/components/Studio/TestCreation/Step5Confirmation';
 import { Button, Card, Stepper } from '@/components/UI';
 import { useGames } from '@/hooks/useGames';
-import { useCreateTest } from '@/hooks/useTests';
+import { useCreateTest, usePagarTeste } from '@/hooks/useTests';
 import { useStudioUser } from '@/stores/authStore';
-import { useTestStore } from '@/stores/testStore';
+import { ETAPA_BUILD, useTestStore } from '@/stores/testStore';
 import { ROUTES, TEST_STEPS } from '@/utils/constants';
 import { cn } from '@/utils/helpers';
 
@@ -42,16 +42,23 @@ const PROGRESSO_DA_ETAPA: Record<number, number> = {
   4: 933.5 / 1122,
 };
 
+/**
+ * O desenho mostra as formas de pagamento só como ilustração, sem seleção: o
+ * checkout vai como Pix. No sandbox da API qualquer método aprova na hora.
+ */
+const FORMA_DE_PAGAMENTO = 'PIX';
+
 /** O Nightfall do "Pagar e finalizar!" (`438:4329`) vem inclinado a 158,77° no arquivo. */
 const DEGRADE_PAGAR =
   'linear-gradient(158.77deg, rgb(36, 143, 247) 18.801%, rgb(135, 90, 242) 81.199%)';
 
 export default function StudioNewTestPage() {
   const createTest = useCreateTest();
+  const pagar = usePagarTeste();
 
   const [searchParams] = useSearchParams();
   const studio = useStudioUser();
-  const games = useGames(studio?.id);
+  const games = useGames(studio?.studio.studioId);
 
   const draft = useTestStore((state) => state.draft);
   const setGame = useTestStore((state) => state.setGame);
@@ -73,6 +80,21 @@ export default function StudioNewTestPage() {
   const nextStep = useTestStore((state) => state.nextStep);
   const previousStep = useTestStore((state) => state.previousStep);
   const isStepValid = useTestStore((state) => state.isStepValid);
+  const reset = useTestStore((state) => state.reset);
+  const setTestIdCriado = useTestStore((state) => state.setTestIdCriado);
+
+  /*
+   * A confirmação é o fim do rascunho: voltar à rota depois de sair dela começa
+   * um teste novo. O reset fica para a saída para a etapa 5 ainda mostrar o resumo.
+   */
+  const etapaAtual = useRef(currentStep);
+  etapaAtual.current = currentStep;
+  useEffect(() => {
+    if (useTestStore.getState().currentStep === ULTIMA_ETAPA) reset();
+    return () => {
+      if (etapaAtual.current === ULTIMA_ETAPA) reset();
+    };
+  }, [reset]);
 
   /*
    * Não há efeito recalculando o orçamento aqui. Havia um que rodava enquanto
@@ -81,18 +103,46 @@ export default function StudioNewTestPage() {
    * disparar em loop. Quem fecha a conta é a etapa 4, que conhece o modelo.
    */
 
+  // A/B de imagens roda sem build: o stepper não ganha a bolinha da etapa 3.
+  const semBuild = draft.model === 'AB_IMAGES';
+  const etapasDoStepper = TEST_STEPS.filter((step) => !(semBuild && step.id === ETAPA_BUILD));
+  const indiceNoStepper = Math.max(
+    etapasDoStepper.findIndex((step) => step.id === Math.min(currentStep, TEST_STEPS.length)),
+    0,
+  );
+
+  // Rascunho salvo parado na etapa de build antes de o modelo ser A/B: segue para o orçamento.
+  useEffect(() => {
+    if (semBuild && currentStep === ETAPA_BUILD) setStep(ETAPA_BUILD + 1);
+  }, [semBuild, currentStep, setStep]);
+
   const podeAvancar = isStepValid(currentStep);
   const naEtapaDeCompra = currentStep === 4;
   const naConfirmacao = currentStep === ULTIMA_ETAPA;
 
   /**
-   * "Pagar e finalizar" cria o teste e avança para a confirmação. Sair do fluxo
-   * é decisão do usuário a partir dela, não um redirecionamento automático.
+   * "Pagar e finalizar": cria o teste na API (uma vez só — a nova tentativa
+   * reaproveita o criado) e paga. O teste é publicado quando o pedido sai
+   * pago, e só então a confirmação aparece. Sair do fluxo é decisão do
+   * usuário a partir dela, não um redirecionamento automático.
    */
   async function publicar() {
-    await createTest.mutateAsync(draft);
-    nextStep();
+    const { testIdCriado, chave } = useTestStore.getState();
+    try {
+      let testId = testIdCriado;
+      if (!testId) {
+        testId = (await createTest.mutateAsync({ draft, chave })).id;
+        setTestIdCriado(testId);
+      }
+      const pedido = await pagar.mutateAsync({ testId, method: FORMA_DE_PAGAMENTO, chave });
+      if (pedido.status === 'PAID') nextStep();
+    } catch {
+      // A mensagem da API aparece abaixo do card.
+    }
   }
+
+  const erroDaPublicacao = (createTest.error ?? pagar.error) as { message?: string } | null;
+  const pagamentoPendente = pagar.data && pagar.data.status !== 'PAID' ? pagar.data : null;
 
   return (
     <div className="flex flex-col gap-6">
@@ -113,10 +163,11 @@ export default function StudioNewTestPage() {
           <>
             <Stepper
               className="mx-auto w-[560px] flex-none"
-              steps={TEST_STEPS.map((step) => ({ id: step.id, label: step.title }))}
-              current={Math.min(currentStep, TEST_STEPS.length) - 1}
+              steps={etapasDoStepper.map((step) => ({ id: step.id, label: step.title }))}
+              current={indiceNoStepper}
               onStepClick={(index) => {
-                if (index + 1 <= maxStepReached) setStep(index + 1);
+                const etapa = etapasDoStepper[index]?.id;
+                if (etapa && etapa <= maxStepReached) setStep(etapa);
               }}
             />
 
@@ -132,15 +183,20 @@ export default function StudioNewTestPage() {
         <div className={cn('animate-fade-in', !naConfirmacao && 'mt-6')}>
           {currentStep === 1 && <Step1SelectModel />}
           {currentStep === 2 && <Step2CreateForm />}
-          {currentStep === 3 && <Step3UploadBuild />}
+          {currentStep === ETAPA_BUILD && !semBuild && <Step3UploadBuild />}
           {currentStep === 4 && <Step4Budget />}
           {currentStep === 5 && <Step5Confirmation />}
         </div>
 
-        {createTest.isError && (
+        {erroDaPublicacao && (
           <p className="mt-6 rounded-xl border border-orbit-error bg-orbit-error-bg p-3 text-graphic text-orbit-error">
-            {(createTest.error as { message?: string })?.message ??
-              'Não foi possível publicar o teste.'}
+            {erroDaPublicacao.message ?? 'Não foi possível publicar o teste.'}
+          </p>
+        )}
+
+        {pagamentoPendente && (
+          <p className="mt-6 rounded-xl border border-orbit-error bg-orbit-error-bg p-3 text-graphic text-orbit-error">
+            {pagamentoPendente.failureReason ?? 'O pagamento ainda não foi confirmado. Tente de novo em instantes.'}
           </p>
         )}
 
@@ -150,6 +206,18 @@ export default function StudioNewTestPage() {
             {currentStep > 1 && <Voltar onClick={previousStep} />}
 
             <span className="h-0.5 flex-1 rounded-full bg-orbit-border/40" />
+
+            {/* Na etapa 2 o arquivo põe "Pré-visualizar" ao lado do "Próximo" (`319:7969`). */}
+            {currentStep === 2 && (
+              <button
+                type="button"
+                className="flex items-center gap-1 text-button text-orbit-blue hover:underline"
+                title="Ainda não disponível"
+              >
+                Pré-visualizar
+                <img src="./icons/figma/question-preview.svg" alt="" className="size-6" />
+              </button>
+            )}
 
             <Button variant="nightfall" onClick={nextStep} disabled={!podeAvancar}>
               Próximo
@@ -170,7 +238,7 @@ export default function StudioNewTestPage() {
               <Button
                 variant="nightfall"
                 onClick={publicar}
-                loading={createTest.isPending}
+                loading={createTest.isPending || pagar.isPending}
                 disabled={!podeAvancar}
                 style={{ backgroundImage: DEGRADE_PAGAR }}
               >

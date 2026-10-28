@@ -349,7 +349,8 @@ function formatarEnvio(iso: string): string {
  * É a única superfície clara do card (`Types and Elements/Light`), como a linha
  * de cabeçalho das tabelas. Enter ou o aviãozinho enviam; campo vazio não envia.
  * Os ícones ao lado do campo — emoji, imagem, agenda, contato e ajuda — o
- * arquivo desenha mas não especifica, então ficam inertes.
+ * arquivo desenha mas não especifica, então ficam inertes. Eles não encolhem:
+ * em janela estreita quem cede espaço é o campo, como no arquivo.
  */
 function BarraDeEnvio({ onEnviar }: { onEnviar: (texto: string) => Promise<unknown> }) {
   const [texto, setTexto] = useState('');
@@ -374,7 +375,7 @@ function BarraDeEnvio({ onEnviar }: { onEnviar: (texto: string) => Promise<unkno
       {/* Único campo sobre superfície clara do app: texto escuro. */}
       <Input
         surface="light"
-        className="w-[676px] max-w-full"
+        className="w-[676px] min-w-0"
         value={texto}
         onChange={(evento) => setTexto(evento.target.value)}
         onKeyDown={(evento) => {
@@ -396,19 +397,19 @@ function BarraDeEnvio({ onEnviar }: { onEnviar: (texto: string) => Promise<unkno
         }
       />
 
-      <button type="button" title="Ainda não disponível">
+      <button type="button" title="Ainda não disponível" className="shrink-0">
         <IconeEmoji className="size-6 text-orbit-blue" />
       </button>
 
       {['chat-imagem', 'chat-agenda', 'chat-contato'].map((icone) => (
-        <button key={icone} type="button" title="Ainda não disponível">
+        <button key={icone} type="button" title="Ainda não disponível" className="shrink-0">
           <img src={`./icons/figma/${icone}.svg`} alt="" className="size-6" />
         </button>
       ))}
 
       <span className="flex-1" />
 
-      <button type="button" title="Ainda não disponível">
+      <button type="button" title="Ainda não disponível" className="shrink-0">
         <img src="./icons/figma/chat-ajuda.svg" alt="" className="size-6" />
       </button>
     </form>

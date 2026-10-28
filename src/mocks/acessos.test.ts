@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { AccessGroup, AccessOverview, AccessUser } from '@/types';
+import type { AccessGroup, AccessOverview, AccessUser, UserRole } from '@/types';
+import { issueToken } from './db';
+import { accounts } from './fixtures/players.json';
 import type { HttpMethod, MockRoute } from './routes';
 
 let rotas: MockRoute[];
@@ -10,14 +12,41 @@ beforeEach(async () => {
   rotas = (await import('./routes')).routes;
 });
 
-function chamar<T>(method: HttpMethod, path: string, body?: unknown, params: Record<string, string> = {}) {
+function sessao(role: UserRole) {
+  const conta = accounts.find((item) => item.user.role === role)!;
+  return { Authorization: `Bearer ${issueToken(conta.user.id, role)}` };
+}
+
+function chamar<T>(
+  method: HttpMethod,
+  path: string,
+  body?: unknown,
+  params: Record<string, string> = {},
+  headers: Record<string, string> = sessao('STUDIO'),
+) {
   const rota = rotas.find((item) => item.method === method && item.path === path);
   if (!rota) throw new Error(`rota ${method} ${path} não existe`);
-  const resposta = rota.resolve({ params, query: new URLSearchParams(), body, headers: {} });
+  const resposta = rota.resolve({ params, query: new URLSearchParams(), body, headers });
   return { status: resposta.status, data: resposta.data as T };
 }
 
 const visao = () => chamar<AccessOverview>('GET', '/studio/access').data;
+
+describe('quem pode gerenciar acessos', () => {
+  it('recusa o tester com 403, mesmo chamando a API direto', () => {
+    const tester = sessao('PLAYER');
+
+    expect(chamar('GET', '/studio/access', undefined, {}, tester).status).toBe(403);
+    expect(
+      chamar('DELETE', '/studio/access/users/:id', undefined, { id: 'usr-hideo' }, tester).status,
+    ).toBe(403);
+    expect(visao().users.some((usuario) => usuario.id === 'usr-hideo')).toBe(true);
+  });
+
+  it('pede login de novo sem sessão', () => {
+    expect(chamar('GET', '/studio/access', undefined, {}, {}).status).toBe(401);
+  });
+});
 
 describe('gerenciamento de acessos', () => {
   it('lista o usuário com os grupos em que ele está', () => {

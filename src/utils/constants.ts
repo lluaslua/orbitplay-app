@@ -29,6 +29,10 @@ export const STORAGE_KEYS = {
 
 export const ROUTES = {
   login: '/login',
+  /** Cadastro e nova senha: telas provisórias, sem frame no Figma. */
+  register: '/register',
+  /** O mesmo caminho do link que a API manda por e-mail. */
+  resetPassword: '/reset-password',
   studio: {
     home: '/studio',
     games: '/studio/games',
@@ -97,6 +101,7 @@ export const PARTICIPATION_STATUS_LABELS: Record<ParticipationStatus, string> = 
   COMPLETED: 'Completo',
   UNAVAILABLE: 'Indisponível',
   REJECTED: 'Recusado',
+  ABANDONED: 'Desistiu',
 };
 
 export const REWARD_STATUS_LABELS: Record<RewardStatus, string> = {
@@ -263,48 +268,6 @@ export interface PermissionRow {
   permissions: Record<PermissionKey, boolean>;
 }
 
-/**
- * Linhas com que a etapa 3 de "Novo jogo" já abre, tons exatos do print. Os
- * grupos e membros disponíveis para adicionar vêm de `useStudioTeam`
- * (`GET /studio/team`, mockado em `src/mocks/db.ts`) — "Analitics" é grafado
- * assim no arquivo do Figma, não "Analytics".
- */
-export const NEW_GAME_DEFAULT_PERMISSIONS: PermissionRow[] = [
-  {
-    id: 'grp-diretores',
-    kind: 'group',
-    name: 'Diretores',
-    meta: '2 perfis',
-    permissions: { editPermissions: true, editInfo: true, editTests: true, viewReports: true },
-  },
-  {
-    id: 'grp-qa',
-    kind: 'group',
-    name: 'QA',
-    meta: '25 perfis',
-    permissions: { editPermissions: false, editInfo: true, editTests: true, viewReports: true },
-  },
-  {
-    id: 'grp-analitics',
-    kind: 'group',
-    name: 'Analitics',
-    meta: '12 perfis',
-    permissions: { editPermissions: false, editInfo: false, editTests: false, viewReports: true },
-  },
-  {
-    id: 'mem-hideo',
-    kind: 'member',
-    name: 'Hideo Kojima',
-    permissions: { editPermissions: true, editInfo: true, editTests: false, viewReports: false },
-  },
-  {
-    id: 'mem-guilherme',
-    kind: 'member',
-    name: 'Guilherme Hoffmann',
-    permissions: { editPermissions: false, editInfo: false, editTests: false, viewReports: true },
-  },
-];
-
 /** Taxa da plataforma aplicada no orçamento (Etapa 4). */
 export const PLATFORM_FEE_RATE = 0.15;
 
@@ -433,67 +396,19 @@ export const NEXT_STEPS_AFTER_PAYMENT = [
 ];
 
 /**
- * Resultado da leitura da build na etapa 3 (Figma `319:8624`).
+ * Opções do menu "Tipo da pergunta" da etapa 2 — Figma `1192:11096`, na ordem
+ * do arquivo. "Escolha" é a de uma resposta (rádio) e "Múltipla escolha" a de
+ * várias (caixas). `icone` é o SVG do item em `public/icons/figma/`.
  *
- * Num app com backend isto viria do parser do Orbit Plug-in. Aqui é fixo, com o
- * conteúdo exato do arquivo, porque o que a tela mostra é justamente a lista
- * detectada.
+ * A API aceita outros tipos (lista suspensa, grades, data...), e a avaliação do
+ * tester sabe desenhá-los; o Novo teste oferece só o que o Figma desenha.
  */
-export interface PluginDetection {
-  id: string;
-  /** Texto da tag de tipo da variável, ex.: "Int". */
-  varType: string;
-  varTone: 'emerald' | 'sapphire' | 'amethyst';
-  name: string;
-  kind: string;
-  /** `false` deixa "Quantidade controle" como "Indisponível". */
-  amountEditable: boolean;
-  /** Rótulos das caixas de seleção da coluna "Ações". */
-  metrics: string[];
-}
-
-export const PLUGIN_TRIGGERS: PluginDetection[] = [
-  { id: 'tr-1', varType: 'Int', varTone: 'emerald', name: 'BOSS01_Defeat', kind: 'Contador', amountEditable: true, metrics: ['Média', 'Total', 'Tempo médio'] },
-  { id: 'tr-2', varType: 'Time.DeltaTime', varTone: 'sapphire', name: 'Tempo_Fase02', kind: 'Contador tempo', amountEditable: true, metrics: ['Média', 'Máximo/minimo'] },
-  { id: 'tr-3', varType: 'Int', varTone: 'emerald', name: 'Menu_Loja', kind: 'Contador UI', amountEditable: true, metrics: ['Total', 'Tempo médio entre contagem'] },
-  { id: 'tr-4', varType: 'Vector3.position', varTone: 'amethyst', name: 'Movimentação', kind: 'Vector3', amountEditable: false, metrics: ['Média', 'Angulo médio'] },
-  { id: 'tr-5', varType: 'Int', varTone: 'emerald', name: 'ESPECIAL_UNO', kind: 'Contador Input', amountEditable: true, metrics: ['Total', 'Tempo médio entre contagem'] },
+export const QUESTION_TYPES: { id: QuestionType; label: string; icone: string }[] = [
+  { id: 'SHORT_TEXT', label: 'Resposta curta', icone: 'tipo-resposta-curta' },
+  { id: 'MULTIPLE_CHOICE', label: 'Escolha', icone: 'tipo-escolha' },
+  { id: 'CHECKBOXES', label: 'Múltipla escolha', icone: 'tipo-multipla-escolha' },
+  { id: 'LINEAR_SCALE', label: 'Escala linear', icone: 'tipo-escala-linear' },
 ];
-
-export const PLUGIN_HEATMAPS: PluginDetection[] = [
-  { id: 'hm-1', varType: 'Vector3.position', varTone: 'amethyst', name: 'Fase_01_São Paulo', kind: 'Vector3', amountEditable: false, metrics: ['Média', 'Angulo médio'] },
-  { id: 'hm-2', varType: 'Int', varTone: 'emerald', name: 'BOSS01_Defeat', kind: 'Contador', amountEditable: true, metrics: ['Média', 'Total', 'Tempo médio'] },
-];
-
-/**
- * Opções do seletor "Tipo da pergunta" da etapa 2, na ordem do menu do Figma.
- * Os separadores marcam os grupos que o menu desenha com linha divisória.
- */
-export const QUESTION_TYPES: {
-  id: QuestionType;
-  label: string;
-  /** Recebe a tag "Nova" no menu. */
-  isNew?: boolean;
-  /** Abre um grupo novo — o menu põe uma linha acima. */
-  startsGroup?: boolean;
-}[] = [
-  { id: 'SHORT_TEXT', label: 'Resposta curta' },
-  { id: 'PARAGRAPH', label: 'Parágrafo' },
-  { id: 'MULTIPLE_CHOICE', label: 'Múltipla escolha', startsGroup: true },
-  { id: 'CHECKBOXES', label: 'Caixas de seleção' },
-  { id: 'DROPDOWN', label: 'Lista suspensa' },
-  { id: 'FILE_UPLOAD', label: 'Upload de arquivo', startsGroup: true },
-  { id: 'LINEAR_SCALE', label: 'Escala linear', startsGroup: true },
-  { id: 'RATING', label: 'Classificação', isNew: true },
-  { id: 'MULTIPLE_CHOICE_GRID', label: 'Grade de múltipla escolha' },
-  { id: 'CHECKBOX_GRID', label: 'Grade da caixa de seleção' },
-  { id: 'DATE', label: 'Data', startsGroup: true },
-  { id: 'TIME', label: 'Horário' },
-];
-
-export const QUESTION_TYPE_LABELS = Object.fromEntries(
-  QUESTION_TYPES.map((tipo) => [tipo.id, tipo.label]),
-) as Record<QuestionType, string>;
 
 /**
  * Rótulos do stepper — os quatro do Figma (`318:6417`). A quinta tela do fluxo

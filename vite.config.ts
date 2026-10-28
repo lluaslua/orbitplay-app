@@ -86,7 +86,8 @@ export default defineConfig({
     include: ['src/**/*.test.{ts,tsx}'],
     restoreMocks: true,
     // A latência artificial do mock é coisa do `npm run dev`; nos testes ela só atrasa o waitFor.
-    env: { VITE_MOCK_LATENCY: '0' },
+    // As suítes rodam sobre o mock em memória, mesmo com o `.env.local` apontando para a API.
+    env: { VITE_MOCK_LATENCY: '0', VITE_USE_MOCKS: 'true' },
   },
   build: {
     outDir: 'dist',

@@ -33,7 +33,10 @@ export interface FormQuestion {
   required: boolean;
   /** Imagem anexada pelo botão ao lado de "Obrigatória", já reduzida (data URL WebP). */
   imageUrl?: string;
+  /** Escolhas e listas: as opções. Nas grades: as linhas. */
   options?: string[];
+  /** Só nas grades (`GRID_CHOICE` / `GRID_CHECKBOX`): as colunas. */
+  columns?: string[];
   scaleMin?: number;
   scaleMax?: number;
   scaleMinLabel?: string;
@@ -112,6 +115,10 @@ export interface Playtest {
   requiresRecording: boolean;
   requiresMicrophone: boolean;
   requiresWebcam: boolean;
+  /** "Jogável com controle*" da etapa 3 (Figma `319:7985`). */
+  requiresController: boolean;
+  /** Só jogadores ELITE entram — a aba "Exclusivos ELITE" do catálogo. */
+  eliteOnly: boolean;
   questions: FormQuestion[];
   audience: PlaytestAudience;
   budget: PlaytestBudget;
@@ -140,6 +147,10 @@ export interface TestDraft {
   requiresRecording: boolean;
   requiresMicrophone: boolean;
   requiresWebcam: boolean;
+  /** "Jogável com controle*" da etapa 3. */
+  requiresController: boolean;
+  /** A build enviada na etapa 3 (`POST /games/:gameId/builds`). */
+  buildId: string | null;
   buildFileName: string | null;
   buildSizeMb: number | null;
   buildVersion: string;

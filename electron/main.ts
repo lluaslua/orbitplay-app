@@ -1,6 +1,8 @@
 import { app, BrowserWindow, shell, ipcMain, dialog } from 'electron';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { baixarBuild, type PedidoDeBuild } from './builds';
+import { abrirJogo, estadoDoJogo, type PedidoDeJogo } from './jogo';
 import { getAvailableUpdate, runInstaller } from './updater';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -161,6 +163,13 @@ ipcMain.handle('dialog:select-file', async (_e, filters?: Electron.FileFilter[])
  */
 ipcMain.handle('update:check', () => getAvailableUpdate());
 ipcMain.handle('update:install', (_e, file: string) => runInstaller(file));
+
+/** Build do teste: baixa para `userData/builds` com progresso (ver `builds.ts`). */
+ipcMain.handle('build:baixar', (e, pedido: PedidoDeBuild) => baixarBuild(pedido, e.sender));
+
+/** O jogo do teste: abre a build baixada e acompanha até fechar (ver `jogo.ts`). */
+ipcMain.handle('jogo:abrir', (e, pedido: PedidoDeJogo) => abrirJogo(pedido, e.sender));
+ipcMain.handle('jogo:estado', (_e, testId: string) => estadoDoJogo(testId));
 
 ipcMain.handle('window:minimize', () => mainWindow?.minimize());
 ipcMain.handle('window:toggle-maximize', () => {

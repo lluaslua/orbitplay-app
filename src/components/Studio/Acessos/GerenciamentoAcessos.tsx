@@ -2,11 +2,19 @@ import { useState } from 'react';
 import { Search } from 'lucide-react';
 import { BotoesExportar } from '@/components/Common/BotoesExportar';
 import { PageHeading } from '@/components/Common/PageHeading';
-import { Button, ErrorState, Input, SkeletonCard } from '@/components/UI';
+import {
+  Button,
+  ErrorState,
+  Input,
+  SkeletonCard,
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from '@/components/UI';
 import { useAcessos } from '@/hooks/useAcessos';
 import type { AccessSummary } from '@/types';
 import { ROUTES } from '@/utils/constants';
-import { cn } from '@/utils/helpers';
 import { NovoGrupoModal } from './ModaisGrupo';
 import { NovoUsuarioModal } from './ModaisUsuario';
 import { TabelaGrupos } from './TabelaGrupos';
@@ -22,10 +30,11 @@ import { TabelaUsuarios } from './TabelaUsuarios';
  * ações; o que muda entre as duas está em `TabelaUsuarios` e `TabelaGrupos`.
  */
 const ABAS = ['Usuários', 'Grupos'] as const;
+type Aba = (typeof ABAS)[number];
 
 export function GerenciamentoAcessos() {
   const acessos = useAcessos();
-  const [aba, setAba] = useState<(typeof ABAS)[number]>('Usuários');
+  const [aba, setAba] = useState<Aba>('Usuários');
   const [busca, setBusca] = useState('');
   const [novoUsuario, setNovoUsuario] = useState(false);
   const [novoGrupo, setNovoGrupo] = useState(false);
@@ -49,65 +58,63 @@ export function GerenciamentoAcessos() {
 
       {acessos.data && <Resumo resumo={acessos.data.summary} />}
 
-      <div className="flex items-end">
-        {ABAS.map((nome) => {
-          const ativa = nome === aba;
+      {/*
+        As duas abas são instâncias de "Fixed tabs" (`1275:4867`), coladas, e a
+        régua branca de 1px completa a linha até a borda.
+      */}
+      <Tabs
+        value={aba}
+        onValueChange={(valor) => setAba(valor as Aba)}
+        className="flex flex-col gap-6"
+      >
+        <TabsList className="gap-0 shadow-none">
+          {ABAS.map((nome) => (
+            <TabsTrigger key={nome} value={nome}>
+              {nome}
+            </TabsTrigger>
+          ))}
+          <span aria-hidden className="h-px flex-1 self-end bg-white" />
+        </TabsList>
 
-          return (
-            <button
-              key={nome}
-              type="button"
-              onClick={() => setAba(nome)}
-              className={cn('flex flex-col items-center pt-3', ativa ? 'gap-4' : 'gap-[17px]')}
-            >
-              <span
-                className={cn(
-                  'px-3 text-center text-body',
-                  ativa ? 'font-bold text-orbit-blue' : 'text-white',
-                )}
-              >
-                {nome}
-              </span>
-              <span className={cn('w-full', ativa ? 'h-0.5 bg-orbit-blue' : 'h-px bg-white')} />
-            </button>
-          );
-        })}
-        <span className="h-px flex-1 bg-white" />
-      </div>
+        <div className="flex items-end gap-6">
+          <label className="flex w-[415px] flex-col gap-1.5 pt-0.5">
+            <span className="text-[16px] font-bold leading-none text-white">Buscar</span>
+            <Input
+              placeholder="Digite..."
+              value={busca}
+              onChange={(event) => setBusca(event.target.value)}
+              iconRight={<Search className="text-white" />}
+            />
+          </label>
 
-      <div className="flex items-end gap-6">
-        <label className="flex w-[415px] flex-col gap-1.5 pt-0.5">
-          <span className="text-[16px] font-bold leading-none text-white">Buscar</span>
-          <Input
-            placeholder="Digite..."
-            value={busca}
-            onChange={(event) => setBusca(event.target.value)}
-            iconRight={<Search className="text-white" />}
+          <span className="flex-1" />
+
+          <BotoesExportar className="gap-6" />
+
+          <Button variant="flame" onClick={() => (usuariosAba ? setNovoUsuario(true) : setNovoGrupo(true))}>
+            {usuariosAba ? 'Novo usuário' : 'Novo grupo'}
+            <img src="./icons/figma/plus-branco.svg" alt="" className="size-6" />
+          </Button>
+        </div>
+
+        {acessos.isError ? (
+          <ErrorState
+            description="Não conseguimos carregar os acessos do estúdio."
+            onRetry={() => acessos.refetch()}
           />
-        </label>
-
-        <span className="flex-1" />
-
-        <BotoesExportar className="gap-6" />
-
-        <Button variant="flame" onClick={() => (usuariosAba ? setNovoUsuario(true) : setNovoGrupo(true))}>
-          {usuariosAba ? 'Novo usuário' : 'Novo grupo'}
-          <img src="./icons/figma/plus-branco.svg" alt="" className="size-6" />
-        </Button>
-      </div>
-
-      {acessos.isError ? (
-        <ErrorState
-          description="Não conseguimos carregar os acessos do estúdio."
-          onRetry={() => acessos.refetch()}
-        />
-      ) : acessos.isLoading ? (
-        <SkeletonCard />
-      ) : usuariosAba ? (
-        <TabelaUsuarios usuarios={usuarios} />
-      ) : (
-        <TabelaGrupos grupos={grupos} usuarios={acessos.data?.users ?? []} />
-      )}
+        ) : acessos.isLoading ? (
+          <SkeletonCard />
+        ) : (
+          <>
+            <TabsContent value="Usuários" className="mt-0">
+              <TabelaUsuarios usuarios={usuarios} />
+            </TabsContent>
+            <TabsContent value="Grupos" className="mt-0">
+              <TabelaGrupos grupos={grupos} usuarios={acessos.data?.users ?? []} />
+            </TabsContent>
+          </>
+        )}
+      </Tabs>
 
       <NovoUsuarioModal
         aberto={novoUsuario}

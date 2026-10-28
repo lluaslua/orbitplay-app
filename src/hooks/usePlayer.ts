@@ -1,14 +1,20 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { get, post } from '@/lib/api';
+import { comChave, get, post, urlDaApi } from '@/lib/api';
 import { queryKeys } from '@/lib/queryClient';
 import { useAuthStore } from '@/stores/authStore';
+import { STORAGE_KEYS } from '@/utils/constants';
 import type {
   Achievement,
+  ApiError,
   AvailableTest,
+  BuildDownloadInfo,
+  ConsentPayload,
+  SessionEventInput,
   Participation,
   PlayerDashboard,
   PlayerGameTest,
   PlayerSessionReview,
+  PlayStatus,
   SessionOutcome,
   SessionResult,
   SessionSubmission,
@@ -51,6 +57,8 @@ export function useStartTest() {
   return useMutation({
     mutationFn: (testId: string) => post<Participation>(`/player/tests/${testId}/start`),
     onSuccess: () => {
+      // A linha do teste na tela do jogo passa de "Começar!" para "Continuar!".
+      client.invalidateQueries({ queryKey: ['player', 'games'] });
       client.invalidateQueries({ queryKey: queryKeys.playerCatalog });
       client.invalidateQueries({ queryKey: queryKeys.participations });
       client.invalidateQueries({ queryKey: queryKeys.playerDashboard });
@@ -60,15 +68,22 @@ export function useStartTest() {
   });
 }
 
-/** Envia o formulario da sessao e devolve XP, nivel e conquistas (TELA 18 -> TELA 19). */
+/**
+ * Envia o formulario da sessao e devolve XP, nivel e conquistas (TELA 18 -> TELA 19).
+ * Um segundo envio da mesma participacao devolve o resultado do primeiro.
+ */
 export function useSubmitSession() {
   const client = useQueryClient();
   const applyPlayerProgress = useAuthStore((state) => state.applyPlayerProgress);
 
   return useMutation({
     mutationFn: ({ testId, submission }: { testId: string; submission: SessionSubmission }) =>
-      post<SessionResult>(`/player/tests/${testId}/submit`, submission),
-    onSuccess: (result) => {
+      post<SessionResult>(
+        `/player/tests/${testId}/submit`,
+        submission,
+        comChave(`envio:${submission.participationId}`),
+      ),
+    onSuccess: (result, { testId }) => {
       // Mantem o header (XP, nivel, saldo) em sincronia com o resultado da sessao.
       applyPlayerProgress({
         xp: result.newXp,
@@ -81,7 +96,99 @@ export function useSubmitSession() {
       client.invalidateQueries({ queryKey: queryKeys.participations });
       client.invalidateQueries({ queryKey: queryKeys.playerCatalog });
       client.invalidateQueries({ queryKey: queryKeys.achievements });
+      client.invalidateQueries({ queryKey: ['player', 'games'] });
+      client.invalidateQueries({ queryKey: queryKeys.sessionReview(testId) });
+      client.invalidateQueries({ queryKey: queryKeys.sessionOutcome(testId) });
     },
+  });
+}
+
+/** A build do teste em que o jogador entrou: nome, tamanho, hash e o caminho do download (TELA 16). */
+export function useBuildDoTeste(testId: string | undefined) {
+  return useQuery({
+    queryKey: queryKeys.buildDoTeste(testId ?? ''),
+    queryFn: () => get<BuildDownloadInfo>(`/player/tests/${testId}/build`),
+    enabled: !!testId,
+    retry: false,
+  });
+}
+
+/** "Iniciar Jogo!" aceita o que o teste exige (gravação, microfone, webcam) antes da sessão. */
+export function useConsentimento() {
+  return useMutation({
+    mutationFn: ({ participationId, consentimento }: { participationId: string; consentimento: ConsentPayload }) =>
+      post<{ consentAt: string }>(`/player/participations/${participationId}/consent`, consentimento),
+  });
+}
+
+/**
+ * Abre o jogo do teste pelo app desktop, que passa a contar o tempo jogado e
+ * avisa quando ele fecha (TELA 17). No navegador não há como abrir nem acompanhar a build.
+ */
+export function useAbrirJogo() {
+  const client = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ participationId, build }: { participationId: string; build: BuildDownloadInfo }) => {
+      const orbit = window.orbit;
+      if (!orbit) throw { message: 'Abra o teste pelo app OrbitPlay para jogar.' } satisfies ApiError;
+      try {
+        await orbit.jogo.abrir({
+          testId: build.testId,
+          participationId,
+          fileName: build.fileName,
+          comControle: !!build.requiresController,
+          apiUrl: urlDaApi(''),
+          token: localStorage.getItem(STORAGE_KEYS.token) ?? '',
+        });
+      } catch (erro) {
+        // O IPC embrulha o erro do main: "Error invoking remote method 'jogo:abrir': Error: <mensagem>".
+        const mensagem = (erro as Error).message.replace(/^Error invoking remote method '[^']+': (Error: )?/, '');
+        throw { message: mensagem } satisfies ApiError;
+      }
+    },
+    onSuccess: (_resultado, { build }) => {
+      client.invalidateQueries({ queryKey: queryKeys.sessionReview(build.testId) });
+    },
+  });
+}
+
+/**
+ * O jogo fechou: a avaliação já abre com o tempo que a API somou até o fim, sem
+ * mostrar antes o estado de quando o jogo abriu (TELA 17 -> TELA 18).
+ */
+export function useAoFecharJogo() {
+  const client = useQueryClient();
+
+  return (testId: string, status: PlayStatus | null) => {
+    if (!status) return void client.invalidateQueries({ queryKey: queryKeys.sessionReview(testId) });
+    client.setQueryData<PlayerSessionReview>(queryKeys.sessionReview(testId), (atual) =>
+      atual ? { ...atual, play: status } : atual,
+    );
+  };
+}
+
+/** "Desistir do teste": devolve a vaga sem enviar a avaliação (TELA 17). */
+export function useDesistirDoTeste() {
+  const client = useQueryClient();
+
+  return useMutation({
+    mutationFn: (testId: string) => post<Participation>(`/player/tests/${testId}/abandon`),
+    onSuccess: (_participacao, testId) => {
+      client.invalidateQueries({ queryKey: ['player', 'games'] });
+      client.invalidateQueries({ queryKey: queryKeys.playerCatalog });
+      client.invalidateQueries({ queryKey: queryKeys.participations });
+      client.invalidateQueries({ queryKey: queryKeys.playerDashboard });
+      client.invalidateQueries({ queryKey: queryKeys.sessionReview(testId) });
+    },
+  });
+}
+
+/** Eventos da sessão com o segundo em que aconteceram: microfone, webcam, bugs (TELA 17). */
+export function useEventosDaSessao() {
+  return useMutation({
+    mutationFn: ({ participationId, events }: { participationId: string; events: SessionEventInput[] }) =>
+      post<{ received: number }>(`/player/participations/${participationId}/events`, { events }),
   });
 }
 
@@ -94,19 +201,21 @@ export function usePlayerGameTests(gameId: string | undefined) {
   });
 }
 
-/** Sessão gravada que o jogador vai avaliar (TELA 18). */
-export function useSessionReview() {
+/** A sessão do teste que o jogador vai avaliar, com as perguntas do estúdio (TELA 18). */
+export function useSessionReview(testId: string | undefined) {
   return useQuery({
-    queryKey: ['player', 'session-review'],
-    queryFn: () => get<PlayerSessionReview>('/player/session-review'),
+    queryKey: queryKeys.sessionReview(testId ?? ''),
+    queryFn: () => get<PlayerSessionReview>('/player/session-review', { testId }),
+    enabled: !!testId,
   });
 }
 
-/** O que a sessão rendeu, para a tela de conclusão (TELA 19). */
-export function useSessionOutcome() {
+/** O que a sessão do teste rendeu, para a tela de conclusão (TELA 19). */
+export function useSessionOutcome(testId: string | undefined) {
   return useQuery({
-    queryKey: ['player', 'session-outcome'],
-    queryFn: () => get<SessionOutcome>('/player/session-outcome'),
+    queryKey: queryKeys.sessionOutcome(testId ?? ''),
+    queryFn: () => get<SessionOutcome>('/player/session-outcome', { testId }),
+    enabled: !!testId,
   });
 }
 

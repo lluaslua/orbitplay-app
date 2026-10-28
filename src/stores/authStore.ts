@@ -1,7 +1,16 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import type { AuthUser, LoginCredentials, PlayerUser, StudioUser, UserRole } from '@/types';
-import { post } from '@/lib/api';
+import type {
+  AuthSession,
+  AuthUser,
+  LoginCredentials,
+  PlayerUser,
+  RegisterPayload,
+  StudioUser,
+  UserRole,
+} from '@/types';
+import { post, SESSAO_EXPIRADA } from '@/lib/api';
+import { queryClient } from '@/lib/queryClient';
 import { STORAGE_KEYS } from '@/utils/constants';
 
 interface AuthState {
@@ -12,8 +21,12 @@ interface AuthState {
   error: string | null;
 
   login: (credentials: LoginCredentials) => Promise<AuthUser>;
+  /** "Criar uma conta grátis": cria a conta e já entra, como o login. */
+  register: (payload: RegisterPayload) => Promise<AuthUser>;
   logout: () => void;
   recoverPassword: (email: string) => Promise<string>;
+  /** Nova senha pelo link do e-mail (recuperação ou convite da equipe). */
+  resetPassword: (token: string, password: string) => Promise<string>;
   clearError: () => void;
   /** Aplica ganhos de XP/saldo vindos do fim de uma sessao. */
   applyPlayerProgress: (patch: {
@@ -24,30 +37,24 @@ interface AuthState {
   }) => void;
 }
 
+/** Contas da administração da plataforma (OWNER/ADMIN) não têm tela no app. */
+export const CONTA_SEM_APP = 'Esta conta é da administração da plataforma e não tem acesso pelo app.';
+
 export const useAuthStore = create<AuthState>()(
   persist(
-    (set, get) => ({
-      user: null,
-      token: null,
-      remember: false,
-      status: 'idle',
-      error: null,
-
-      login: async (credentials) => {
+    (set, get) => {
+      /** Login e cadastro terminam igual: a sessão da API vira a sessão do app. */
+      async function entrar(pedido: () => Promise<AuthSession>, remember: boolean): Promise<AuthUser> {
         set({ status: 'loading', error: null });
         try {
-          const session = await post<{ token: string; user: AuthUser }>('/auth/login', credentials);
+          const session = await pedido();
+          const role = (session.user as { role: string }).role;
+          if (role !== 'STUDIO' && role !== 'PLAYER') throw { message: CONTA_SEM_APP };
 
           // O token tambem vai para a chave lida pelo interceptor do axios.
           localStorage.setItem(STORAGE_KEYS.token, session.token);
 
-          set({
-            user: session.user,
-            token: session.token,
-            remember: credentials.remember ?? false,
-            status: 'authenticated',
-            error: null,
-          });
+          set({ user: session.user, token: session.token, remember, status: 'authenticated', error: null });
           return session.user;
         } catch (error) {
           const message =
@@ -55,40 +62,58 @@ export const useAuthStore = create<AuthState>()(
           set({ status: 'error', error: message });
           throw error;
         }
-      },
+      }
 
-      logout: () => {
-        localStorage.removeItem(STORAGE_KEYS.token);
-        void post('/auth/logout').catch(() => undefined);
-        set({ user: null, token: null, status: 'idle', error: null });
-      },
+      return {
+        user: null,
+        token: null,
+        remember: false,
+        status: 'idle',
+        error: null,
 
-      recoverPassword: async (email) => {
-        const response = await post<{ message: string }>('/auth/recover', { email });
-        return response.message;
-      },
+        login: (credentials) =>
+          entrar(() => post<AuthSession>('/auth/login', credentials), credentials.remember ?? false),
 
-      clearError: () => set({ error: null }),
+        register: (payload) => entrar(() => post<AuthSession>('/auth/register', payload), false),
 
-      applyPlayerProgress: (patch) => {
-        const current = get().user;
-        if (!current || current.role !== 'PLAYER') return;
+        logout: () => {
+          localStorage.removeItem(STORAGE_KEYS.token);
+          void post('/auth/logout').catch(() => undefined);
+          set({ user: null, token: null, status: 'idle', error: null });
+        },
 
-        set({
-          user: {
-            ...current,
-            player: {
-              ...current.player,
-              xp: patch.xp ?? current.player.xp,
-              level: patch.level ?? current.player.level,
-              pendingBalance: current.player.pendingBalance + (patch.pendingBalanceDelta ?? 0),
-              completedSessions:
-                current.player.completedSessions + (patch.completedSessionsDelta ?? 0),
+        recoverPassword: async (email) => {
+          const response = await post<{ message: string }>('/auth/recover', { email });
+          return response.message;
+        },
+
+        resetPassword: async (token, password) => {
+          const response = await post<{ message: string }>('/auth/reset-password', { token, password });
+          return response.message;
+        },
+
+        clearError: () => set({ error: null }),
+
+        applyPlayerProgress: (patch) => {
+          const current = get().user;
+          if (!current || current.role !== 'PLAYER') return;
+
+          set({
+            user: {
+              ...current,
+              player: {
+                ...current.player,
+                xp: patch.xp ?? current.player.xp,
+                level: patch.level ?? current.player.level,
+                pendingBalance: current.player.pendingBalance + (patch.pendingBalanceDelta ?? 0),
+                completedSessions:
+                  current.player.completedSessions + (patch.completedSessionsDelta ?? 0),
+              },
             },
-          },
-        });
-      },
-    }),
+          });
+        },
+      };
+    },
     {
       name: STORAGE_KEYS.user,
       storage: createJSONStorage(() => localStorage),
@@ -107,6 +132,18 @@ export const useAuthStore = create<AuthState>()(
     },
   ),
 );
+
+/*
+ * A API recusou o token guardado (venceu, a senha mudou, a conta foi
+ * suspensa): sai da conta e limpa o cache, e o guard das rotas volta ao login.
+ */
+if (typeof window !== 'undefined') {
+  window.addEventListener(SESSAO_EXPIRADA, () => {
+    if (!useAuthStore.getState().user) return;
+    useAuthStore.getState().logout();
+    queryClient.clear();
+  });
+}
 
 // --- Seletores tipados -------------------------------------------------------
 
