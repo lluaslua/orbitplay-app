@@ -1,10 +1,10 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { GameCard } from '@/components/Common/GameCard';
 import { EmptyState, ErrorState, Input, SkeletonCard } from '@/components/UI';
 import { useGames } from '@/hooks/useGames';
-import type { Game } from '@/types';
+import type { CatalogTab, Game } from '@/types';
 import { ROUTES } from '@/utils/constants';
-import { cn, matchesSearch } from '@/utils/helpers';
+import { cn } from '@/utils/helpers';
 
 /**
  * TELA 14 — Jogos disponíveis. Figma: frame `849:2926`.
@@ -12,20 +12,32 @@ import { cn, matchesSearch } from '@/utils/helpers';
  * Título com subtítulo, busca à direita, cinco abas e a grade de cards de 430px
  * — quatro por linha nos 1792px de conteúdo.
  *
- * Só "Populares" tem ordenação desenhada no arquivo. As outras quatro abas
- * aparecem porque estão no design, mas não têm critério definido nem tela
- * própria, então ficam inertes.
+ * As cinco abas são as de `GET /games?tab=`. A busca espera um instante e vai
+ * em `search`, para não pedir a lista a cada tecla.
  */
-const ABAS = ['Populares', 'Pagando mais', 'Novos jogos', 'Exclusivos ELITE', 'Comunidades'];
+const ABAS: { rotulo: string; id: CatalogTab }[] = [
+  { rotulo: 'Populares', id: 'POPULAR' },
+  { rotulo: 'Pagando mais', id: 'TOP_PAYING' },
+  { rotulo: 'Novos jogos', id: 'NEW' },
+  { rotulo: 'Exclusivos ELITE', id: 'ELITE' },
+  { rotulo: 'Comunidades', id: 'COMMUNITIES' },
+];
 
 export function JogosDisponiveis() {
-  const { data, isLoading, isError, refetch } = useGames();
+  const [aba, setAba] = useState<CatalogTab>('POPULAR');
   const [busca, setBusca] = useState('');
+  const [buscaEnviada, setBuscaEnviada] = useState('');
 
-  // A API já devolve ao tester só os jogos ativos, de todos os estúdios.
-  const filtrados = (data ?? []).filter(
-    (jogo) => matchesSearch(jogo.name, busca) || matchesSearch(jogo.studioName, busca),
-  );
+  useEffect(() => {
+    const timer = window.setTimeout(() => setBuscaEnviada(busca.trim()), 300);
+    return () => window.clearTimeout(timer);
+  }, [busca]);
+
+  const { data, isLoading, isError, refetch } = useGames(undefined, {
+    aba,
+    busca: buscaEnviada || undefined,
+  });
+  const filtrados = data ?? [];
 
   return (
     <div className="flex flex-col gap-6">
@@ -50,14 +62,15 @@ export function JogosDisponiveis() {
 
       {/* Abas */}
       <div className="flex items-end">
-        {ABAS.map((aba, indice) => {
-          const ativa = indice === 0;
+        {ABAS.map((item) => {
+          const ativa = item.id === aba;
 
           return (
-            <span
-              key={aba}
+            <button
+              key={item.id}
+              type="button"
+              onClick={() => setAba(item.id)}
               className={cn('flex flex-col items-center pt-3', ativa ? 'gap-4' : 'gap-[17px]')}
-              title={ativa ? undefined : 'Ainda não disponível'}
             >
               <span
                 className={cn(
@@ -65,10 +78,10 @@ export function JogosDisponiveis() {
                   ativa ? 'font-bold text-orbit-blue' : 'text-white',
                 )}
               >
-                {aba}
+                {item.rotulo}
               </span>
               <span className={cn('w-full', ativa ? 'h-0.5 bg-orbit-blue' : 'h-px bg-white')} />
-            </span>
+            </button>
           );
         })}
         <span className="h-px flex-1 bg-white" />

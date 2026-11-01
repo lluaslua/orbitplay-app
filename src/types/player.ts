@@ -99,6 +99,10 @@ export interface PlayerSessionReview {
   gameId: string;
   testName: string;
   testKind: string;
+  /** O que "Iniciar Jogo!" aceita: só o que este teste pediu. */
+  requiresRecording: boolean;
+  requiresMicrophone: boolean;
+  requiresWebcam: boolean;
   rewardCents: number;
   testsDone: number;
   transcript: { at: string; text: string }[];

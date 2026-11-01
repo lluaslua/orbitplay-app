@@ -2,12 +2,25 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { EntradaDeAcesso } from '@/components/Studio/GameCreation/useNovoJogoDraft';
 import { get, patch, post, put } from '@/lib/api';
 import { queryKeys } from '@/lib/queryClient';
-import type { CreateGamePayload, Game } from '@/types';
+import type { CatalogTab, CreateGamePayload, Game } from '@/types';
 
-export function useGames(studioId?: string) {
+/**
+ * Lista de jogos. O estúdio passa `studioId` e vê só os seus. O catálogo do
+ * tester passa `aba` e `busca`, que a API já filtra (`?tab=` e `?search=`).
+ */
+export function useGames(studioId?: string, filtros?: { aba?: CatalogTab; busca?: string }) {
+  const params = {
+    ...(studioId ? { studioId } : {}),
+    ...(filtros?.aba ? { tab: filtros.aba } : {}),
+    ...(filtros?.busca ? { search: filtros.busca } : {}),
+  };
+  const comFiltro = !!(filtros?.aba || filtros?.busca);
+
   return useQuery({
-    queryKey: queryKeys.games(studioId),
-    queryFn: () => get<Game[]>('/games', studioId ? { studioId } : undefined),
+    queryKey: comFiltro
+      ? ([...queryKeys.games(studioId), filtros?.aba ?? null, filtros?.busca ?? ''] as const)
+      : queryKeys.games(studioId),
+    queryFn: () => get<Game[]>('/games', Object.keys(params).length ? params : undefined),
   });
 }
 

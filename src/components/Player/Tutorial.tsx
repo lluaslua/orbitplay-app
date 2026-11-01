@@ -69,7 +69,11 @@ export function Tutorial() {
       // Clicar em "Iniciar Jogo!" é aceitar o que o teste pede: gravação, microfone e webcam.
       await consentir.mutateAsync({
         participationId: participacao.id,
-        consentimento: { recording: true, microphone: true, webcam: true },
+        consentimento: {
+          recording: participacao.requiresRecording,
+          microphone: participacao.requiresMicrophone,
+          webcam: participacao.requiresWebcam,
+        },
       });
     } catch {
       return;
@@ -100,8 +104,8 @@ export function Tutorial() {
       <div className="flex w-[1140px] max-w-full flex-col gap-6 rounded-2xl border border-orbit-dim bg-orbit-bg px-6 pb-6 pt-4">
         {/* Cabeçalho: a última etapa esconde o título, como no arquivo */}
         <div className="flex items-center justify-end pl-6 pr-4">
-          {!ultima && (
-            <h1 className="flex-1 text-headline text-white">Tutorial: Teste demo livre</h1>
+          {!ultima && participacao?.testName && (
+            <h1 className="flex-1 text-headline text-white">Tutorial: {participacao.testName}</h1>
           )}
           <button type="button" onClick={sair} aria-label="Fechar tutorial">
             <img src="./icons/figma/tutorial-close.svg" alt="" className="size-6" />
