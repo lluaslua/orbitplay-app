@@ -15,7 +15,7 @@ import {
 import { useGames } from '@/hooks/useGames';
 import { usePlayerDashboard } from '@/hooks/usePlayer';
 import { usePlayerUser } from '@/stores/authStore';
-import type { Game } from '@/types';
+import type { Game, PlayerDashboard } from '@/types';
 import { ROUTES } from '@/utils/constants';
 import { cn, formatAmount, formatCurrency, formatNumber } from '@/utils/helpers';
 
@@ -286,14 +286,13 @@ function SecaoTitulo({ titulo, link, para }: { titulo: string; link: string; par
 }
 
 /** Linha de "Meus testes": mesma anatomia das linhas do benchmark do estúdio. */
-function LinhaTeste({
-  teste,
-}: {
-  teste: { id: string; name: string; progress: number; rewardCents: number };
-}) {
+function LinhaTeste({ teste }: { teste: PlayerDashboard['myTests'][number] }) {
   const completo = teste.progress >= 1;
   const naoIniciado = teste.progress <= 0;
   const rotulo = naoIniciado ? 'Iniciar' : completo ? 'Completar' : 'Continuar';
+  const destino = teste.inProgress
+    ? ROUTES.player.gameplay(teste.testId)
+    : ROUTES.player.result(teste.testId);
 
   return (
     <div className="flex items-center gap-6 px-6 py-2">
@@ -315,15 +314,15 @@ function LinhaTeste({
         + R${formatAmount(teste.rewardCents)}
       </span>
 
-      <button
-        type="button"
+      <Link
+        to={destino}
         className={cn(
-          'h-[38px] w-24 shrink-0 rounded-lg font-label text-[16px] font-normal text-white shadow-bevel',
+          'grid h-[38px] w-24 shrink-0 place-items-center rounded-lg font-label text-[16px] font-normal text-white shadow-bevel',
           completo ? 'bg-orbit-flame-wide' : 'bg-orbit-action-wide',
         )}
       >
         {rotulo}
-      </button>
+      </Link>
     </div>
   );
 }

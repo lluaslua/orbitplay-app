@@ -17,8 +17,9 @@ import {
   Tag,
 } from '@/components/UI';
 import { useGame } from '@/hooks/useGames';
-import { useSessionDetail } from '@/hooks/useReports';
-import type { ReportInsight, SessionDetail } from '@/types';
+import { ModalConfirmacao } from '@/components/Studio/Acessos/ModalConfirmacao';
+import { useAnularSessao, usePedirReteste, useSession, useSessionDetail } from '@/hooks/useReports';
+import type { ApiError, ReportInsight, SessionDetail } from '@/types';
 import { ROUTES } from '@/utils/constants';
 import { cn, formatCountdown, formatNumber, matchesSearch } from '@/utils/helpers';
 
@@ -149,18 +150,7 @@ export function DetalhesTesteSessao() {
 
         <Insights insights={dados.insights} />
 
-        <div className="flex items-center justify-end gap-6">
-          <Acao icone={<HelpCircle className="size-6" />}>Ajuda</Acao>
-          <Acao icone={<Ban className="size-6" />} destrutiva>
-            Pedir anulação do teste
-          </Acao>
-          <Acao icone={<RefreshCw className="size-6" />}>Solicitar novo teste</Acao>
-
-          <Button variant="nightfall">
-            Agradeçer teste!
-            <PartyPopper className="size-6" />
-          </Button>
-        </div>
+        <AcoesDaSessao sessionId={dados.id} />
       </Card>
     </div>
   );
@@ -387,21 +377,89 @@ function Numero({ valor }: { valor: number }) {
 }
 
 
+function AcoesDaSessao({ sessionId }: { sessionId: string }) {
+  const sessao = useSession(sessionId);
+  const anular = useAnularSessao(sessionId);
+  const retestar = usePedirReteste(sessionId);
+  const [confirmar, setConfirmar] = useState(false);
+  const [aviso, setAviso] = useState<string | null>(null);
+  const jaAvaliada = !!sessao.data && sessao.data.rewardStatus !== 'PENDING';
+
+  function recusar() {
+    anular.mutate(undefined, {
+      onSuccess: () => {
+        setConfirmar(false);
+        setAviso('Sessão recusada. A recompensa não entrou no saldo.');
+      },
+      onError: (erro) => {
+        setConfirmar(false);
+        setAviso((erro as ApiError).message);
+      },
+    });
+  }
+
+  function convidar() {
+    setAviso(null);
+    retestar.mutate(undefined, {
+      onSuccess: (convite) => setAviso(convite.testTitle),
+      onError: (erro) => setAviso((erro as ApiError).message),
+    });
+  }
+
+  return (
+    <>
+      <div className="flex items-center justify-end gap-6">
+        <Acao icone={<HelpCircle className="size-6" />}>Ajuda</Acao>
+        {!jaAvaliada && (
+          <Acao icone={<Ban className="size-6" />} destrutiva disabled={anular.isPending} onClick={() => setConfirmar(true)}>
+            Pedir anulação do teste
+          </Acao>
+        )}
+        <Acao icone={<RefreshCw className="size-6" />} disabled={retestar.isPending} onClick={convidar}>
+          Solicitar novo teste
+        </Acao>
+
+        <Button variant="nightfall" title="Ainda não disponível">
+          Agradeçer teste!
+          <PartyPopper className="size-6" />
+        </Button>
+      </div>
+      {aviso && <p className="text-right text-body text-white">{aviso}</p>}
+      <ModalConfirmacao
+        aberto={confirmar}
+        onOpenChange={setConfirmar}
+        selo="alerta"
+        titulo="Pedir anulação"
+        descricao="Recusar esta sessão? A recompensa não entra no saldo."
+        acao="Recusar"
+        carregando={anular.isPending}
+        onConfirmar={recusar}
+      />
+    </>
+  );
+}
+
 function Acao({
   icone,
   children,
   destrutiva,
+  onClick,
+  disabled,
 }: {
   icone: React.ReactNode;
   children: React.ReactNode;
   destrutiva?: boolean;
+  onClick?: () => void;
+  disabled?: boolean;
 }) {
   return (
     <button
       type="button"
-      title="Ainda não disponível"
+      onClick={onClick}
+      disabled={disabled}
+      title={onClick ? undefined : 'Ainda não disponível'}
       className={cn(
-        'flex items-center gap-1 text-button hover:underline',
+        'flex items-center gap-1 text-button hover:underline disabled:opacity-60',
         destrutiva ? 'text-orbit-error-l' : 'text-orbit-blue',
       )}
     >

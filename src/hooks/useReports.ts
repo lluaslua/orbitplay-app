@@ -1,7 +1,7 @@
-import { useQuery } from '@tanstack/react-query';
-import { get } from '@/lib/api';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { get, post } from '@/lib/api';
 import { queryKeys } from '@/lib/queryClient';
-import type { PluginReport, Session, SessionDetail, StudioDashboard, TestReport } from '@/types';
+import type { PluginReport, RetestInviteInfo, Session, SessionDetail, StudioDashboard, TestReport } from '@/types';
 
 export function useStudioDashboard() {
   return useQuery({
@@ -39,6 +39,25 @@ export function useSession(sessionId: string | undefined) {
     queryKey: queryKeys.session(sessionId ?? ''),
     queryFn: () => get<Session>(`/sessions/${sessionId}`),
     enabled: !!sessionId,
+  });
+}
+
+/** Recusa a sessão: a recompensa não entra no saldo. Uma decisão só. */
+export function useAnularSessao(sessionId: string) {
+  const client = useQueryClient();
+
+  return useMutation({
+    mutationFn: () => post<Session>(`/sessions/${sessionId}/validation`, { approved: false }),
+    onSuccess: () => {
+      client.invalidateQueries({ queryKey: queryKeys.session(sessionId) });
+    },
+  });
+}
+
+/** Convida o mesmo tester para o teste ativo mais recente do jogo que ele ainda não fez. */
+export function usePedirReteste(sessionId: string) {
+  return useMutation({
+    mutationFn: () => post<RetestInviteInfo>(`/sessions/${sessionId}/retest`, {}),
   });
 }
 
