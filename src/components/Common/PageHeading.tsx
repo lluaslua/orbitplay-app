@@ -20,11 +20,14 @@ export function PageHeading({
   trilha,
   titulo,
   linha = 'clara',
+  aoVoltar,
 }: {
   trilha: Trilha[];
   titulo: string;
   /** "Gerenciamento de acessos" fecha o bloco com a linha em `#0088FF`, não na cinza das outras telas. */
   linha?: 'clara' | 'azul';
+  /** Troca o voltar do histórico por uma ação da tela (ex.: perguntar antes de sair). */
+  aoVoltar?: () => void;
 }) {
   const navigate = useNavigate();
 
@@ -52,7 +55,7 @@ export function PageHeading({
       <div className="flex items-center gap-6 pt-6">
         <button
           type="button"
-          onClick={() => navigate(-1)}
+          onClick={aoVoltar ?? (() => navigate(-1))}
           aria-label="Voltar"
           className="shrink-0 orbit-focus-ring"
         >

@@ -1,6 +1,7 @@
 import { Fragment, useRef, useState } from 'react';
 import { Navigate, useNavigate, useParams } from 'react-router-dom';
 import { PageHeading } from '@/components/Common/PageHeading';
+import { BloquearRetorno } from '@/components/Common/BloquearRetorno';
 import { CampoPergunta } from '@/components/Player/CampoPergunta';
 import {
   Button,
@@ -243,6 +244,7 @@ export function ResumoSessao() {
 
   return (
     <div className="flex flex-col gap-6">
+      <BloquearRetorno />
       <PageHeading
         trilha={[
           { label: 'Home', to: ROUTES.player.home },

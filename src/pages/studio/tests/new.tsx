@@ -1,6 +1,7 @@
-import { useEffect, useRef } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useEffect, useRef, useState } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { PageHeading } from '@/components/Common/PageHeading';
+import { BloquearRetorno } from '@/components/Common/BloquearRetorno';
 import {
   FormasDePagamento,
   ResumoCompra,
@@ -9,6 +10,7 @@ import { Step1SelectModel } from '@/components/Studio/TestCreation/Step1SelectMo
 import { Step2CreateForm } from '@/components/Studio/TestCreation/Step2CreateForm';
 import { Step3UploadBuild } from '@/components/Studio/TestCreation/Step3UploadBuild';
 import { Step4Budget } from '@/components/Studio/TestCreation/Step4Budget';
+import { ModalSairDoTeste } from '@/components/Studio/TestCreation/ModalSairDoTeste';
 import { Step5Confirmation } from '@/components/Studio/TestCreation/Step5Confirmation';
 import { Button, Card, Stepper } from '@/components/UI';
 import { useGames } from '@/hooks/useGames';
@@ -57,6 +59,8 @@ export default function StudioNewTestPage() {
   const pagar = usePagarTeste();
 
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const [confirmandoSaida, setConfirmandoSaida] = useState(false);
   const studio = useStudioUser();
   const games = useGames(studio?.studio.studioId);
 
@@ -141,11 +145,26 @@ export default function StudioNewTestPage() {
     }
   }
 
+  /*
+   * A seta de voltar leva à página do jogo de onde o teste foi criado. O
+   * rascunho já é guardado a cada alteração, então "Salvar" só sai; "Descartar"
+   * zera o rascunho antes. Sem nada preenchido, sai direto, sem perguntar.
+   */
+  const paginaDoJogo = draft.gameId ? ROUTES.studio.game(draft.gameId) : ROUTES.studio.games;
+  const rascunhoVazio = !draft.model && draft.questions.length === 0 && !draft.buildId;
+
+  function sair(descartar: boolean) {
+    if (descartar) reset();
+    setConfirmandoSaida(false);
+    navigate(paginaDoJogo, { replace: true });
+  }
+
   const erroDaPublicacao = (createTest.error ?? pagar.error) as { message?: string } | null;
   const pagamentoPendente = pagar.data && pagar.data.status !== 'PAID' ? pagar.data : null;
 
   return (
     <div className="flex flex-col gap-6">
+      <BloquearRetorno />
       <PageHeading
         trilha={[
           { label: 'Home', to: ROUTES.studio.home },
@@ -154,6 +173,14 @@ export default function StudioNewTestPage() {
           { label: 'Novo teste' },
         ]}
         titulo="Novo teste"
+        aoVoltar={() => (rascunhoVazio || naConfirmacao ? sair(false) : setConfirmandoSaida(true))}
+      />
+
+      <ModalSairDoTeste
+        aberto={confirmandoSaida}
+        onOpenChange={setConfirmandoSaida}
+        onSalvar={() => sair(false)}
+        onDescartar={() => sair(true)}
       />
 
       <div className={cn('flex items-start gap-6', naEtapaDeCompra && 'flex-row')}>
