@@ -5,6 +5,7 @@ import { mkdir, readdir, rename, rm } from 'node:fs/promises';
 import path from 'node:path';
 import { promisify } from 'node:util';
 import { pastaDasBuilds } from './builds';
+import { urlDaApi } from './seguranca';
 
 /**
  * O jogo do teste aberto pelo app (Tela 17).
@@ -68,6 +69,8 @@ export function estadoDoJogo(testId: string): { aberto: boolean } {
 
 export async function abrirJogo(pedido: PedidoDeJogo, janela: WebContents): Promise<void> {
   if (!/^[\w-]+$/.test(pedido.testId) || !/^[\w-]+$/.test(pedido.participationId)) throw new Error('Teste inválido.');
+  // O token do tester só vai para a API configurada, nunca para um endereço vindo do renderer.
+  if (!urlDaApi(pedido.apiUrl)) throw new Error('Endereço da API inválido.');
   await fechando;
   if (sessao?.pedido.testId === pedido.testId) return;
   if (sessao) throw new Error('Feche o jogo do outro teste antes de abrir este.');

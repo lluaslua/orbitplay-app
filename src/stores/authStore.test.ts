@@ -17,6 +17,7 @@ const sessao = (role: string) => ({
 
 beforeEach(() => {
   localStorage.clear();
+  sessionStorage.clear();
   vi.mocked(post).mockReset();
   vi.mocked(post).mockResolvedValue(undefined);
   useAuthStore.setState({ user: null, token: null, status: 'idle', error: null });
@@ -29,7 +30,9 @@ it('criar a conta já entra no app, como o login', async () => {
 
   expect(vi.mocked(post).mock.calls[0][0]).toBe('/auth/register');
   expect(useAuthStore.getState()).toMatchObject({ token: 'token-novo', status: 'authenticated' });
-  expect(localStorage.getItem(STORAGE_KEYS.token)).toBe('token-novo');
+  // Sem "Lembrar login" o token fica só na sessão do navegador (não em localStorage).
+  expect(sessionStorage.getItem(STORAGE_KEYS.token)).toBe('token-novo');
+  expect(localStorage.getItem(STORAGE_KEYS.token)).toBeNull();
 });
 
 it('conta da administração da plataforma não entra no app', async () => {

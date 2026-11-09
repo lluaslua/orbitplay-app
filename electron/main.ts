@@ -3,6 +3,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { baixarBuild, type PedidoDeBuild } from './builds';
 import { abrirJogo, estadoDoJogo, type PedidoDeJogo } from './jogo';
+import { remetenteConfiavel } from './seguranca';
 import { getAvailableUpdate, runInstaller } from './updater';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -102,7 +103,10 @@ function createWindow() {
       preload: path.join(__dirname, 'preload.cjs'),
       contextIsolation: true,
       nodeIntegration: false,
-      sandbox: false,
+      // O preload só usa `contextBridge` e `ipcRenderer` (permitidos no sandbox): o renderer não toca em Node.
+      sandbox: true,
+      webSecurity: true,
+      allowRunningInsecureContent: false,
     },
   });
 
@@ -121,13 +125,18 @@ function createWindow() {
     janelaAntesDeMaximizar = null;
   });
 
-  // Links externos abrem no browser do sistema, nunca dentro do app.
+  // Links externos abrem no browser do sistema, nunca dentro do app (só https; nada de file:, javascript: etc.).
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
-    if (url.startsWith('https://') || url.startsWith('http://')) {
-      void shell.openExternal(url);
-    }
+    if (url.startsWith('https://')) void shell.openExternal(url);
     return { action: 'deny' };
   });
+
+  // A janela nunca navega para fora do app (um link ou redirecionamento não troca a interface por outra página).
+  mainWindow.webContents.on('will-navigate', (evento, url) => {
+    const dentro = VITE_DEV_SERVER_URL ? url.startsWith(VITE_DEV_SERVER_URL) : url.startsWith('file://');
+    if (!dentro) evento.preventDefault();
+  });
+  mainWindow.webContents.on('will-attach-webview', (evento) => evento.preventDefault());
 
   if (VITE_DEV_SERVER_URL) {
     void mainWindow.loadURL(VITE_DEV_SERVER_URL);
@@ -162,13 +171,21 @@ ipcMain.handle('dialog:select-file', async (_e, filters?: Electron.FileFilter[])
  * A decisão fica na interface — o main nunca dispara um .exe por conta própria.
  */
 ipcMain.handle('update:check', () => getAvailableUpdate());
-ipcMain.handle('update:install', (_e, file: string) => runInstaller(file));
+ipcMain.handle('update:install', (e, file: string) =>
+  remetenteConfiavel(e) ? runInstaller(file) : 'Origem não confiável.',
+);
 
 /** Build do teste: baixa para `userData/builds` com progresso (ver `builds.ts`). */
-ipcMain.handle('build:baixar', (e, pedido: PedidoDeBuild) => baixarBuild(pedido, e.sender));
+ipcMain.handle('build:baixar', (e, pedido: PedidoDeBuild) => {
+  if (!remetenteConfiavel(e)) throw new Error('Origem não confiável.');
+  return baixarBuild(pedido, e.sender);
+});
 
 /** O jogo do teste: abre a build baixada e acompanha até fechar (ver `jogo.ts`). */
-ipcMain.handle('jogo:abrir', (e, pedido: PedidoDeJogo) => abrirJogo(pedido, e.sender));
+ipcMain.handle('jogo:abrir', (e, pedido: PedidoDeJogo) => {
+  if (!remetenteConfiavel(e)) throw new Error('Origem não confiável.');
+  return abrirJogo(pedido, e.sender);
+});
 ipcMain.handle('jogo:estado', (_e, testId: string) => estadoDoJogo(testId));
 
 ipcMain.handle('window:minimize', () => mainWindow?.minimize());

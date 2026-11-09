@@ -4,7 +4,7 @@ import { api, get, post } from '@/lib/api';
 import { USE_MOCKS } from '@/mocks/server';
 import { queryKeys } from '@/lib/queryClient';
 import { useAuthStore } from '@/stores/authStore';
-import { STORAGE_KEYS } from '@/utils/constants';
+import { getToken } from '@/lib/tokenStorage';
 import type {
   ApiError,
   ChatAuthor,
@@ -87,10 +87,11 @@ function useCommunitySocket(gameId: string): boolean {
     let timer: ReturnType<typeof setTimeout>;
 
     function abrir() {
-      const token = localStorage.getItem(STORAGE_KEYS.token);
+      const token = getToken();
       if (!token) return;
       const base = String(api.defaults.baseURL).replace(/^http/, 'ws');
-      socket = new WebSocket(`${base}/community/ws?gameId=${encodeURIComponent(gameId)}&token=${encodeURIComponent(token)}`);
+      // O token vai no subprotocolo, não na URL (a URL cai em logs e histórico).
+      socket = new WebSocket(`${base}/community/ws?gameId=${encodeURIComponent(gameId)}`, ['orbit.v1', token]);
 
       socket.onopen = () => {
         setConectado(true);

@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { comChave, get, post, urlDaApi } from '@/lib/api';
 import { queryKeys } from '@/lib/queryClient';
 import { useAuthStore } from '@/stores/authStore';
-import { STORAGE_KEYS } from '@/utils/constants';
+import { getToken } from '@/lib/tokenStorage';
 import type {
   Achievement,
   ApiError,
@@ -139,7 +139,7 @@ export function useAbrirJogo() {
           fileName: build.fileName,
           comControle: !!build.requiresController,
           apiUrl: urlDaApi(''),
-          token: localStorage.getItem(STORAGE_KEYS.token) ?? '',
+          token: getToken() ?? '',
         });
       } catch (erro) {
         // O IPC embrulha o erro do main: "Error invoking remote method 'jogo:abrir': Error: <mensagem>".

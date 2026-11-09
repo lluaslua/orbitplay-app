@@ -1,4 +1,5 @@
 import { defineConfig } from 'vitest/config';
+import { loadEnv, type Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
 import path from 'node:path';
 import { readFileSync } from 'node:fs';
@@ -9,10 +10,43 @@ import renderer from 'vite-plugin-electron-renderer';
 // Sem a flag, o Vite roda como um app web comum no browser (npm run dev).
 const isElectron = process.env.ORBIT_ELECTRON === '1';
 
+/** Origem da API (`VITE_API_URL`): entra no processo principal do Electron e no CSP de produção. */
+const apiUrl = loadEnv(process.env.NODE_ENV ?? 'production', process.cwd(), 'VITE_').VITE_API_URL ?? process.env.VITE_API_URL ?? 'http://localhost:3333/api';
+const apiOrigin = new URL(apiUrl).origin;
+
+/**
+ * CSP do build de produção. O `index.html` leva a política de desenvolvimento (o Vite
+ * precisa de script inline e `eval` no dev server). No `vite build` ela é trocada por esta:
+ * sem `unsafe-inline`/`unsafe-eval` em script, e `connect-src` só na API configurada.
+ */
+function cspDeProducao(): Plugin {
+  return {
+    name: 'orbitplay-csp-producao',
+    apply: 'build',
+    transformIndexHtml(html) {
+      const ws = apiOrigin.replace(/^http/, 'ws');
+      const politica = [
+        "default-src 'self'",
+        `img-src 'self' data: blob: ${apiOrigin}`,
+        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+        "font-src 'self' data: https://fonts.gstatic.com",
+        "script-src 'self'",
+        `connect-src 'self' ${apiOrigin} ${ws}`,
+        'frame-src https://www.youtube-nocookie.com',
+        "object-src 'none'",
+        "base-uri 'none'",
+        "form-action 'none'",
+      ].join('; ');
+      return html.replace(/(<meta\s+http-equiv="Content-Security-Policy"\s+content=")[^"]*(")/, `$1${politica}$2`);
+    },
+  };
+}
+
 export default defineConfig({
   base: isElectron ? './' : '/',
   plugins: [
     react(),
+    cspDeProducao(),
     ...(isElectron
       ? [
           electron({
@@ -23,6 +57,7 @@ export default defineConfig({
                   outDir: 'dist-electron',
                   rollupOptions: { external: ['electron'] },
                 },
+                define: { __API_ORIGIN__: JSON.stringify(apiOrigin) },
               },
             },
             preload: {

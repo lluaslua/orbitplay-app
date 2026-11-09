@@ -22,11 +22,18 @@ export interface PedidoDeBuild {
   sha256: string | null;
 }
 
+import { urlDaApi } from './seguranca';
+
 export const pastaDasBuilds = () => path.join(app.getPath('userData'), 'builds');
 
 export async function baixarBuild(pedido: PedidoDeBuild, janela: WebContents): Promise<string> {
   if (!/^[\w-]+$/.test(pedido.testId)) throw new Error('Teste inválido.');
-  if (!/^https?:\/\//.test(pedido.url)) throw new Error('Endereço de download inválido.');
+  // O download só vem da API configurada: o renderer não escolhe o servidor (o token iria junto).
+  if (!urlDaApi(pedido.url)) throw new Error('Endereço de download inválido.');
+  // Sem o hash da API não há como saber se o arquivo é o publicado: não baixa nem executa.
+  if (typeof pedido.sha256 !== 'string' || !/^[a-f0-9]{64}$/i.test(pedido.sha256)) {
+    throw new Error('A API não informou a assinatura (SHA-256) da build; download recusado.');
+  }
 
   const pasta = path.join(pastaDasBuilds(), pedido.testId);
   const destino = path.join(pasta, path.basename(pedido.fileName) || 'build');
@@ -66,7 +73,7 @@ export async function baixarBuild(pedido: PedidoDeBuild, janela: WebContents): P
     throw erro;
   }
 
-  if (pedido.sha256 && hash.digest('hex') !== pedido.sha256) {
+  if (hash.digest('hex').toLowerCase() !== pedido.sha256.toLowerCase()) {
     await rm(destino, { force: true });
     throw new Error('O arquivo baixado não confere com a build do teste. Tente de novo.');
   }
