@@ -15,6 +15,8 @@ export const queryKeys = {
   session: (id: string) => ['sessions', 'detail', id] as const,
   playerDashboard: ['player', 'dashboard'] as const,
   playerCatalog: ['player', 'catalog'] as const,
+  /** Carteira do tester: saldo, saques e extrato. */
+  wallet: ['player', 'wallet'] as const,
   participations: ['player', 'participations'] as const,
   achievements: ['player', 'achievements'] as const,
   /** Sessão do teste: a revisão antes do formulário e o resultado depois do envio. */

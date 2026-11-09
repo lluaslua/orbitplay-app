@@ -34,6 +34,8 @@ interface AuthState {
     xp?: number;
     level?: number;
     pendingBalanceDelta?: number;
+    /** A recompensa entra no saldo ao enviar o teste e o saque sai dele no pedido. */
+    balanceDelta?: number;
     completedSessionsDelta?: number;
   }) => void;
 }
@@ -111,6 +113,7 @@ export const useAuthStore = create<AuthState>()(
                 ...current.player,
                 xp: patch.xp ?? current.player.xp,
                 level: patch.level ?? current.player.level,
+                balance: current.player.balance + (patch.balanceDelta ?? 0),
                 pendingBalance: current.player.pendingBalance + (patch.pendingBalanceDelta ?? 0),
                 completedSessions:
                   current.player.completedSessions + (patch.completedSessionsDelta ?? 0),
