@@ -11,6 +11,7 @@ import type {
 } from '@/types';
 import { post, SESSAO_EXPIRADA } from '@/lib/api';
 import { queryClient } from '@/lib/queryClient';
+import { clearToken, getToken, setToken } from '@/lib/tokenStorage';
 import { STORAGE_KEYS } from '@/utils/constants';
 
 interface AuthState {
@@ -51,8 +52,8 @@ export const useAuthStore = create<AuthState>()(
           const role = (session.user as { role: string }).role;
           if (role !== 'STUDIO' && role !== 'PLAYER') throw { message: CONTA_SEM_APP };
 
-          // O token tambem vai para a chave lida pelo interceptor do axios.
-          localStorage.setItem(STORAGE_KEYS.token, session.token);
+          // O interceptor do axios lê o token de `tokenStorage`: localStorage só com "Lembrar login".
+          setToken(session.token, remember);
 
           set({ user: session.user, token: session.token, remember, status: 'authenticated', error: null });
           return session.user;
@@ -77,9 +78,14 @@ export const useAuthStore = create<AuthState>()(
         register: (payload) => entrar(() => post<AuthSession>('/auth/register', payload), false),
 
         logout: () => {
-          localStorage.removeItem(STORAGE_KEYS.token);
-          void post('/auth/logout').catch(() => undefined);
+          // A API revoga o token (ele deixa de valer mesmo antes de vencer). O pedido leva o token
+          // explicitamente porque a limpeza local acontece logo em seguida.
+          const token = getToken();
+          clearToken();
           set({ user: null, token: null, status: 'idle', error: null });
+          if (token) {
+            void post('/auth/logout', undefined, { headers: { Authorization: `Bearer ${token}` } }).catch(() => undefined);
+          }
         },
 
         recoverPassword: async (email) => {
@@ -116,17 +122,33 @@ export const useAuthStore = create<AuthState>()(
     },
     {
       name: STORAGE_KEYS.user,
-      storage: createJSONStorage(() => localStorage),
-      // `status` e `error` sao efemeros: nao faz sentido restaurar "loading".
+      // O perfil acompanha o token: com "Lembrar login" fica em localStorage; sem ele, só na sessão.
+      storage: createJSONStorage(() => ({
+        getItem: (nome) => sessionStorage.getItem(nome) ?? localStorage.getItem(nome),
+        setItem: (nome, valor) => {
+          const lembrar = (JSON.parse(valor) as { state?: { remember?: boolean } }).state?.remember === true;
+          (lembrar ? localStorage : sessionStorage).setItem(nome, valor);
+          (lembrar ? sessionStorage : localStorage).removeItem(nome);
+        },
+        removeItem: (nome) => {
+          sessionStorage.removeItem(nome);
+          localStorage.removeItem(nome);
+        },
+      })),
+      // `status` e `error` sao efemeros. O TOKEN nao e persistido aqui: ele vive so em `tokenStorage`.
       partialize: (state) => ({
         user: state.user,
-        token: state.token,
         remember: state.remember,
       }),
       onRehydrateStorage: () => (state) => {
-        if (state?.token) {
-          localStorage.setItem(STORAGE_KEYS.token, state.token);
+        const token = getToken();
+        if (state && token && state.user) {
+          state.token = token;
           state.status = 'authenticated';
+        } else if (state) {
+          // Perfil sem token (sessão encerrada ou aba nova sem "Lembrar login"): volta ao login.
+          state.user = null;
+          state.token = null;
         }
       },
     },

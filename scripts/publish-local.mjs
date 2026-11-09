@@ -12,6 +12,7 @@
  *   1. a variável de ambiente `ORBITPLAY_FEED`
  *   2. `~/OrbitPlayFeed`
  */
+import { createHash } from 'node:crypto';
 import { copyFile, mkdir, readFile, writeFile, readdir, stat } from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
@@ -35,11 +36,14 @@ try {
   process.exit(1);
 }
 
+// O hash vai no feed: o app só abre o instalador se o arquivo ainda for este (ver electron/updater.ts).
+const sha256 = createHash('sha256').update(await readFile(installerPath)).digest('hex');
+
 await mkdir(feedDir, { recursive: true });
 await copyFile(installerPath, path.join(feedDir, installer));
 await writeFile(
   path.join(feedDir, 'latest.json'),
-  `${JSON.stringify({ version, file: installer, publishedAt: new Date().toISOString() }, null, 2)}\n`,
+  `${JSON.stringify({ version, file: installer, sha256, publishedAt: new Date().toISOString() }, null, 2)}\n`,
 );
 
 const naPasta = (await readdir(feedDir)).filter((n) => n.endsWith('.exe')).sort();

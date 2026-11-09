@@ -1,4 +1,5 @@
 import { app, shell } from 'electron';
+import { createHash } from 'node:crypto';
 import { appendFile, readFile } from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
@@ -31,6 +32,8 @@ const FEED_DIR = process.env.ORBITPLAY_FEED ?? path.join(os.homedir(), 'OrbitPla
 export interface UpdateInfo {
   version: string;
   file: string;
+  /** Opcional (escrito por `publish-local`): quando existe, o instalador só abre se o hash bater. */
+  sha256?: string;
 }
 
 /** Compara `1.2.10` com `1.2.9` numericamente, campo a campo. */
@@ -98,7 +101,26 @@ export async function getAvailableUpdate(): Promise<UpdateInfo | null> {
  * Só deve ser chamado a partir de uma ação explícita do usuário na interface.
  */
 export async function runInstaller(file: string): Promise<string | null> {
-  const installer = path.join(FEED_DIR, file);
+  // O renderer só diz "instalar": o que abre é o arquivo que o feed anuncia, nunca um caminho dele.
+  // Antes, `file` ia direto para `shell.openPath` — um nome como `..\\..\\x.exe` executava qualquer programa.
+  const anunciado = await readFile(path.join(FEED_DIR, 'latest.json'), 'utf8')
+    .then((raw) => JSON.parse(raw) as Partial<UpdateInfo>)
+    .catch(() => null);
+  const nome = typeof file === 'string' ? file : '';
+  const valido =
+    anunciado?.file === nome &&
+    nome === path.basename(nome) &&
+    /^[\w .()+-]+\.(exe|dmg)$/i.test(nome);
+  if (!valido) return 'Instalador não reconhecido pelo feed de atualização.';
+
+  const installer = path.join(FEED_DIR, nome);
+  if (anunciado?.sha256) {
+    const atual = createHash('sha256').update(await readFile(installer)).digest('hex');
+    if (atual.toLowerCase() !== anunciado.sha256.toLowerCase()) {
+      await log(`instalador ${nome} com hash diferente do feed: recusado`);
+      return 'O instalador não confere com o publicado (SHA-256). Atualização recusada.';
+    }
+  }
   const error = await shell.openPath(installer);
 
   if (error) return `${error} (${installer})`;

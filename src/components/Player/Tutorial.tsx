@@ -4,7 +4,8 @@ import { baixarArquivo, urlDaApi } from '@/lib/api';
 import { useAbrirJogo, useBuildDoTeste, useConsentimento, useSessionReview } from '@/hooks/usePlayer';
 import { useSessaoStore } from '@/stores/sessaoStore';
 import type { BuildDownloadInfo } from '@/types';
-import { STORAGE_KEYS, TUTORIAL_OBSERVAR, TUTORIAL_DICAS, ROUTES } from '@/utils/constants';
+import { getToken } from '@/lib/tokenStorage';
+import { TUTORIAL_OBSERVAR, TUTORIAL_DICAS, ROUTES } from '@/utils/constants';
 import { cn } from '@/utils/helpers';
 import { Button } from '@/components/UI';
 import { BloquearRetorno } from '@/components/Common/BloquearRetorno';
@@ -240,7 +241,7 @@ function useDownloadDaBuild(testId: string | undefined, info: BuildDownloadInfo 
           .baixar({
             testId,
             url: urlDaApi(info.downloadPath),
-            token: localStorage.getItem(STORAGE_KEYS.token),
+            token: getToken(),
             fileName: info.fileName,
             sha256: info.sha256,
           })

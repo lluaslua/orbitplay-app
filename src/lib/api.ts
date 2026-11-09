@@ -7,7 +7,7 @@
 import axios, { AxiosError, type AxiosRequestConfig } from 'axios';
 import { mockAdapter } from '@/mocks/adapter';
 import { USE_MOCKS } from '@/mocks/server';
-import { STORAGE_KEYS } from '@/utils/constants';
+import { clearToken, getToken } from '@/lib/tokenStorage';
 import type { ApiError } from '@/types';
 
 export const api = axios.create({
@@ -29,7 +29,7 @@ export function configureApi(mswActive: boolean) {
 
 // Anexa o token guardado em cada requisicao.
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem(STORAGE_KEYS.token);
+  const token = getToken();
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
@@ -53,7 +53,7 @@ api.interceptors.response.use(
     // 401 numa chamada que levou token (o login nao leva) e sessao expirada:
     // o authStore escuta o evento, sai da conta e o guard volta para o login.
     if (error.response?.status === 401 && error.config?.headers?.Authorization) {
-      localStorage.removeItem(STORAGE_KEYS.token);
+      clearToken();
       window.dispatchEvent(new Event(SESSAO_EXPIRADA));
     }
 
