@@ -48,6 +48,8 @@ export const ROUTES = {
   player: {
     home: '/player',
     catalog: '/player/games',
+    /** O mesmo caminho do link das notificações de saque que a API manda. */
+    wallet: '/player/wallet',
     game: (id: string) => `/player/games/${id}`,
     tutorial: (testId: string) => `/player/test/${testId}/tutorial`,
     gameplay: (testId: string) => `/player/test/${testId}/gameplay`,

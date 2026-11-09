@@ -135,8 +135,8 @@ export function ResultadoParticipacao() {
             <p className="text-subtitle text-white">Recompensas</p>
             <Girando grande />
             <p className="max-w-[640px] text-center text-caption text-orbit-muted">
-              Assim que nossa IA analisar seu feedback e o estúdio confirmar o teste, sua
-              recompensa será liberada. Fique tranquilo, avisaremos você assim que estiver pronta!
+              Nossa IA está analisando seu feedback. A recompensa já foi para o seu saldo; se o
+              estúdio recusar o teste, o valor é estornado e avisamos você.
             </p>
           </div>
         )}

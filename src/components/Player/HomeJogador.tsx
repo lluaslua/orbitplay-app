@@ -234,13 +234,12 @@ function CarteiraCard({ saldo }: { saldo: number }) {
         </span>
       </div>
 
-      <button
-        type="button"
-        className="flex h-full items-center justify-center rounded-lg bg-orbit-action-wide px-8 font-label text-[24px] font-normal text-white shadow-bevel"
-        title="Ainda não disponível"
+      <Link
+        to={ROUTES.player.wallet}
+        className="flex h-full items-center justify-center rounded-lg bg-orbit-action-wide px-8 font-label text-[24px] font-normal text-white shadow-bevel orbit-focus-ring"
       >
         Sacar!
-      </button>
+      </Link>
     </div>
   );
 }

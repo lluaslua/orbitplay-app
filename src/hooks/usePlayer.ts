@@ -88,11 +88,13 @@ export function useSubmitSession() {
       applyPlayerProgress({
         xp: result.newXp,
         level: result.newLevel,
-        pendingBalanceDelta: result.rewardCents,
+        // A API credita a recompensa no saldo ao receber o envio.
+        balanceDelta: result.rewardCents,
         completedSessionsDelta: 1,
       });
 
       client.invalidateQueries({ queryKey: queryKeys.playerDashboard });
+      client.invalidateQueries({ queryKey: queryKeys.wallet });
       client.invalidateQueries({ queryKey: queryKeys.participations });
       client.invalidateQueries({ queryKey: queryKeys.playerCatalog });
       client.invalidateQueries({ queryKey: queryKeys.achievements });

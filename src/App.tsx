@@ -26,6 +26,7 @@ const StudioAcessosPage = lazy(() => import('@/pages/studio/acessos'));
 const PlayerHomePage = lazy(() => import('@/pages/player/index'));
 const PlayerCatalogPage = lazy(() => import('@/pages/player/games'));
 const PlayerGameDetailPage = lazy(() => import('@/pages/player/[gameId]'));
+const PlayerWalletPage = lazy(() => import('@/pages/player/wallet'));
 const PlayerTutorialPage = lazy(() => import('@/pages/player/test/tutorial'));
 const PlayerGameplayPage = lazy(() => import('@/pages/player/test/gameplay'));
 const PlayerSummaryPage = lazy(() => import('@/pages/player/test/summary'));
@@ -109,6 +110,7 @@ export default function App() {
             <Route path="/player" element={<PlayerHomePage />} />
             <Route path="/player/games" element={<PlayerCatalogPage />} />
             <Route path="/player/games/:gameId" element={<PlayerGameDetailPage />} />
+            <Route path="/player/wallet" element={<PlayerWalletPage />} />
             <Route path="/player/test/:testId/tutorial" element={<PlayerTutorialPage />} />
             <Route path="/player/test/:testId/summary" element={<PlayerSummaryPage />} />
             <Route path="/player/test/:testId/result" element={<PlayerResultPage />} />

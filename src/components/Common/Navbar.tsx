@@ -56,7 +56,7 @@ const STUDIO_NAV: NavItem[] = [
 const PLAYER_NAV: NavItem[] = [
   { label: 'Home', icon: Home, to: ROUTES.player.home, end: true },
   { label: 'Jogos', icon: Gamepad2, to: ROUTES.player.catalog },
-  { label: 'Meus testes e ganhos', icon: Wallet },
+  { label: 'Meus testes e ganhos', icon: Wallet, to: ROUTES.player.wallet },
   { label: 'Tutorial e formação', icon: GraduationCap },
   { label: 'Comunidade', icon: Users },
 ];
