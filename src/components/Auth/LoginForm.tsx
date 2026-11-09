@@ -1,11 +1,12 @@
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { useState } from 'react';
-import { AlertCircle, ArrowRight, CheckCircle2 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { AlertCircle, ArrowRight } from 'lucide-react';
 import { Checkbox, Input } from '@/components/UI';
 import { useAuth } from '@/hooks/useAuth';
 import type { UserRole } from '@/types';
+import { ROUTES } from '@/utils/constants';
 
 const loginSchema = z.object({
   email: z
@@ -35,15 +36,14 @@ export function LoginForm({
   role: Extract<UserRole, 'STUDIO' | 'PLAYER'>;
   demoEmail: string;
 }) {
-  const { login, isLoading, error, clearError, recoverPassword } = useAuth();
-  const [recuperacao, setRecuperacao] = useState<string | null>(null);
+  const { login, isLoading, error, clearError } = useAuth();
+  const navigate = useNavigate();
 
   const {
     register,
     handleSubmit,
     setValue,
     watch,
-    trigger,
     getValues,
     formState: { errors, isSubmitting },
   } = useForm<LoginFormValues>({
@@ -55,24 +55,14 @@ export function LoginForm({
   const remember = watch('remember');
   const ocupado = isLoading || isSubmitting;
 
-  /**
-   * "Esqueci minha senha": usa o e-mail já digitado e pede o link à API, que
-   * responde a mesma mensagem com ou sem conta (o link sai no log da API).
-   */
-  async function esqueci() {
+  /** "Esqueci minha senha": abre "Esqueceu sua senha?" com o e-mail que já foi digitado. */
+  function esqueci() {
     clearError();
-    setRecuperacao(null);
-    if (!(await trigger('email'))) return;
-    try {
-      setRecuperacao(await recoverPassword(getValues('email')));
-    } catch (erro) {
-      setRecuperacao((erro as { message?: string }).message ?? 'Não foi possível pedir o link agora.');
-    }
+    navigate(ROUTES.forgotPassword, { state: { email: getValues('email'), role } });
   }
 
   const onSubmit = handleSubmit(async (values) => {
     clearError();
-    setRecuperacao(null);
     await login({ ...values, role }).catch(() => {
       // O erro fica no store e aparece no bloco abaixo.
     });
@@ -113,20 +103,13 @@ export function LoginForm({
 
         <button
           type="button"
-          onClick={() => void esqueci()}
+          onClick={esqueci}
           className="flex items-center gap-1 text-button text-orbit-blue-deep hover:underline"
         >
           Esqueci minha senha
           <ArrowRight className="size-5" />
         </button>
       </div>
-
-      {recuperacao && !error && (
-        <p role="status" className="flex items-start gap-2 rounded-lg border border-orbit-success/40 bg-orbit-success/10 p-3 text-graphic text-orbit-success">
-          <CheckCircle2 className="mt-0.5 size-4 shrink-0" />
-          {recuperacao}
-        </p>
-      )}
 
       {error && (
         <p

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { cn, formatCurrency, formatDuration, senhaValida } from './helpers';
+import { cn, formatCurrency, formatDuration, mascararEmail, senhaValida } from './helpers';
 
 describe('formatCurrency', () => {
   it('formata centavos como moeda brasileira', () => {
@@ -34,5 +34,15 @@ describe('senhaValida', () => {
 
   it('recusa letra fora do alfabeto latino', () => {
     expect(senhaValida('Forte#2026ç')).toBe(false);
+  });
+});
+
+describe('mascararEmail', () => {
+  it('esconde o começo do usuário e mantém os dois últimos caracteres e o domínio', () => {
+    expect(mascararEmail('joao.julio@email.com')).toBe('*****io@email.com');
+  });
+
+  it('devolve o texto como veio quando não é e-mail', () => {
+    expect(mascararEmail('sem-arroba')).toBe('sem-arroba');
   });
 });

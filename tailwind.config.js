@@ -229,6 +229,12 @@ export default {
          */
         'orbit-recommended':
           'linear-gradient(18.39deg, #F8643B 7.193%, rgba(238, 126, 95, 0) 56.051%)',
+        /**
+         * Cartão das telas de conta (Criar conta, Verifique seu e-mail, Esqueceu
+         * sua senha...): o azul-arroxeado do canto de cima some no `#080321`.
+         * Valores tirados da captura dos frames — conferir no Figma quando o MCP voltar.
+         */
+        'orbit-conta': 'linear-gradient(160deg, #160C52 0%, #0B0632 45%, #080321 100%)',
       },
       keyframes: {
         'accordion-down': {

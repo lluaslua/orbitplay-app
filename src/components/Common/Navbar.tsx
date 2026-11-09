@@ -211,7 +211,12 @@ export function Navbar() {
                 Gerenciamento de acessos
               </ItemMenuCartao>
             )}
-            <ItemMenuCartao icone="./icons/figma/perfil-conta.svg">Minha conta</ItemMenuCartao>
+            <ItemMenuCartao
+              icone="./icons/figma/perfil-conta.svg"
+              onSelect={() => navigate(studio ? ROUTES.studio.account : ROUTES.player.account)}
+            >
+              Minha conta
+            </ItemMenuCartao>
             <ItemMenuCartao icone="./icons/figma/perfil-sair.svg" onSelect={() => logout()}>
               Sair
             </ItemMenuCartao>

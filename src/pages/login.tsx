@@ -10,8 +10,8 @@ import { ROUTES } from '@/utils/constants';
 /**
  * TELA 01 — Login. Figma: `181:8146` (tester) e `291:2022` (estúdio).
  *
- * O cartão (arte, controles da janela, logo e abas) é a `MolduraAuth`, a mesma
- * do cadastro. "Criar uma conta grátis" leva ao cadastro já na aba escolhida.
+ * O cartão (arte, controles da janela, logo e abas) é a `MolduraAuth`. "Criar uma
+ * conta grátis" leva ao "Criar conta" já com o perfil da aba escolhida.
  */
 export default function LoginPage() {
   const { isAuthenticated, user, homeFor, clearError } = useAuth();

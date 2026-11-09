@@ -206,3 +206,13 @@ export function senhaValida(senha: string): boolean {
     /^[\x20-\x7E]*$/.test(senha)
   );
 }
+
+/**
+ * "Enviamos um código de 6 dígitos para *****jo@email.com": esconde o começo do
+ * usuário e deixa os dois últimos caracteres e o domínio, como no Figma.
+ */
+export function mascararEmail(email: string): string {
+  const [usuario, dominio] = email.split('@');
+  if (!dominio) return email;
+  return `*****${usuario.slice(-2)}@${dominio}`;
+}

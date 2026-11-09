@@ -1,12 +1,12 @@
-import { useForm } from 'react-hook-form';
+import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { AlertCircle } from 'lucide-react';
-import { Input, SelectField } from '@/components/UI';
+import { CalendarDays, Globe, User } from 'lucide-react';
+import { AvisoConta, Caixa, CampoConta, CLASSE_INPUT, IconeCampo } from '@/components/Auth/MolduraConta';
+import { Checkbox, Radio } from '@/components/UI';
 import { useAuth } from '@/hooks/useAuth';
-import type { RegisterPayload, UserRole } from '@/types';
-import { ARCHETYPES, PLAYER_TYPES } from '@/utils/constants';
-import { senhaValida } from '@/utils/helpers';
+import type { RegisterPayload, TestLocation, UserRole } from '@/types';
+import { cn, senhaValida } from '@/utils/helpers';
 
 /** A idade mínima do público dos testes (etapa 4 do Novo teste). */
 export const IDADE_MINIMA = 16;
@@ -19,190 +19,254 @@ export function idadeEm(nascimento: string, hoje = new Date()): number {
   return idade;
 }
 
-const comuns = {
-  name: z.string().trim().min(2, 'Informe o seu nome.').max(120, 'Use até 120 caracteres.'),
-  email: z.string().trim().min(1, 'Informe o seu e-mail.').email('Digite um e-mail válido (ex.: nome@estudio.com).'),
-  password: z
-    .string()
-    .refine(senhaValida, 'Use 8 ou mais caracteres com maiúscula, minúscula, número e símbolo.'),
-  confirmacao: z.string().min(1, 'Repita a senha.'),
-};
-
-const senhasIguais = (valores: { password: string; confirmacao: string }) => valores.password === valores.confirmacao;
-const senhasDiferentes = { message: 'As senhas não são iguais.', path: ['confirmacao'] };
+/** "País / região": os países em que o público dos testes pode morar. */
+export const PAISES: { id: Exclude<TestLocation, 'GLOBAL'>; rotulo: string }[] = [
+  { id: 'BRASIL', rotulo: 'Brasil' },
+  { id: 'EUA', rotulo: 'Estados Unidos' },
+];
 
 /**
- * As regras do cadastro, por perfil. O estúdio informa a organização (CNPJ e
- * site são opcionais); o tester informa o que decide em quais testes ele entra:
- * idade, onde mora, como joga e o estilo de jogo.
+ * As regras do "Criar conta". Estúdio e jogador preenchem os mesmos campos
+ * (Figma: os dois cartões "Criar conta"); o que muda é o rótulo. Os Termos de
+ * Uso são obrigatórios, as novidades são opcionais e começam desmarcadas.
  */
-export const esquemaDoEstudio = z
+export const esquemaDoCadastro = z
   .object({
-    ...comuns,
-    organization: z.string().trim().min(1, 'Informe o nome do estúdio.').max(120, 'Use até 120 caracteres.'),
-    cnpj: z.string().trim().max(20, 'Use até 20 caracteres.').optional(),
-    website: z
-      .string()
-      .trim()
-      .optional()
-      .refine((valor) => !valor || /^https?:\/\/\S+\.\S+/.test(valor), 'Informe o endereço com https://.'),
-  })
-  .refine(senhasIguais, senhasDiferentes);
-
-export const esquemaDoTester = z
-  .object({
-    ...comuns,
+    role: z.enum(['STUDIO', 'PLAYER']),
+    name: z.string().trim().min(2, 'Informe o nome.').max(120, 'Use até 120 caracteres.'),
+    email: z.string().trim().min(1, 'Informe o seu e-mail.').email('Digite um e-mail válido (ex.: nome@estudio.com).'),
     birthDate: z
       .string()
       .min(1, 'Informe a sua data de nascimento.')
-      .refine((valor) => idadeEm(valor) >= IDADE_MINIMA, `É preciso ter ${IDADE_MINIMA} anos ou mais para testar.`),
-    location: z.enum(['BRASIL', 'EUA'], { errorMap: () => ({ message: 'Escolha onde você mora.' }) }),
-    playerType: z.enum(['CASUAL', 'EXPERIENT', 'TRAINED'], { errorMap: () => ({ message: 'Escolha como você joga.' }) }),
-    archetype: z.enum(['CONQUEROR', 'EXPLORER', 'SOCIALIZER', 'KILLER'], {
-      errorMap: () => ({ message: 'Escolha o seu estilo.' }),
+      .refine((valor) => idadeEm(valor) >= IDADE_MINIMA, `É preciso ter ${IDADE_MINIMA} anos ou mais.`),
+    location: z.enum(['BRASIL', 'EUA'], { errorMap: () => ({ message: 'Escolha o país.' }) }),
+    password: z
+      .string()
+      .refine(senhaValida, 'Use 8 ou mais caracteres com maiúscula, minúscula, número e símbolo.'),
+    confirmacao: z.string().min(1, 'Repita a senha.'),
+    acceptTerms: z.literal(true, {
+      errorMap: () => ({ message: 'Aceite os Termos de Uso e a Política de Privacidade.' }),
     }),
+    marketingOptIn: z.boolean(),
   })
-  .refine(senhasIguais, senhasDiferentes);
+  .refine((valores) => valores.password === valores.confirmacao, {
+    message: 'As senhas não são iguais.',
+    path: ['confirmacao'],
+  });
 
-type Valores = Partial<z.infer<typeof esquemaDoEstudio> & z.infer<typeof esquemaDoTester>>;
+export type ValoresCadastro = z.infer<typeof esquemaDoCadastro>;
 
-/** Os valores do formulário no formato do `POST /auth/register`. */
-export function payloadDoCadastro(role: Extract<UserRole, 'STUDIO' | 'PLAYER'>, valores: Valores): RegisterPayload {
-  const base = { role, name: valores.name!.trim(), email: valores.email!.trim(), password: valores.password! };
-  if (role === 'STUDIO') {
-    return {
-      ...base,
-      organization: valores.organization!.trim(),
-      cnpj: valores.cnpj?.trim() || undefined,
-      website: valores.website?.trim() || undefined,
-    };
-  }
+/**
+ * Os valores no formato do `POST /auth/register`. O cartão do estúdio pede só
+ * o "Nome do estúdio": ele vira a organização e também o nome da conta, que a
+ * pessoa troca depois em Minha conta ("Nome ou apelido").
+ */
+export function payloadDoCadastro(valores: ValoresCadastro): RegisterPayload {
+  const nome = valores.name.trim();
   return {
-    ...base,
+    role: valores.role,
+    name: nome,
+    email: valores.email.trim(),
+    password: valores.password,
     birthDate: valores.birthDate,
     location: valores.location,
-    playerType: valores.playerType,
-    archetype: valores.archetype,
+    acceptTerms: valores.acceptTerms,
+    marketingOptIn: valores.marketingOptIn,
+    ...(valores.role === 'STUDIO' ? { organization: nome } : {}),
   };
 }
 
+export const ID_FORM_CADASTRO = 'form-cadastro';
+
 /**
- * Formulário de "Criar uma conta grátis" — tela provisória, sem frame no Figma
- * (ver AGENTS.md). Usa as mesmas peças do login; os campos vão em duas colunas
- * e rolam dentro do cartão de 926×619. Criar a conta já entra no app.
+ * Formulário do "Criar conta" — Figma: cartões do estúdio e do jogador. O botão
+ * "Criar conta" fica no rodapé do cartão (fora deste `<form>`) e o liga pelo
+ * atributo `form`.
  */
-export function CadastroForm({ role }: { role: Extract<UserRole, 'STUDIO' | 'PLAYER'> }) {
-  const { register: criarConta, isLoading, error, clearError } = useAuth();
-  const estudio = role === 'STUDIO';
+export function CadastroForm({ roleInicial }: { roleInicial: Extract<UserRole, 'STUDIO' | 'PLAYER'> }) {
+  const { register: criarConta, error, clearError } = useAuth();
 
   const {
     register,
     handleSubmit,
-    formState: { errors, isSubmitting },
-  } = useForm<Valores>({
-    resolver: zodResolver(estudio ? esquemaDoEstudio : esquemaDoTester),
+    control,
+    watch,
+    formState: { errors },
+  } = useForm<ValoresCadastro>({
+    resolver: zodResolver(esquemaDoCadastro),
     mode: 'onBlur',
+    defaultValues: {
+      role: roleInicial,
+      name: '',
+      email: '',
+      birthDate: '',
+      password: '',
+      confirmacao: '',
+      marketingOptIn: false,
+    } as Partial<ValoresCadastro>,
   });
 
-  const ocupado = isLoading || isSubmitting;
+  const role = watch('role');
+  const estudio = role === 'STUDIO';
 
   const onSubmit = handleSubmit(async (valores) => {
     clearError();
-    await criarConta(payloadDoCadastro(role, valores)).catch(() => {
-      // O erro fica no store e aparece no bloco abaixo.
+    await criarConta(payloadDoCadastro(valores)).catch(() => {
+      // O erro fica no store e aparece no aviso abaixo.
     });
   });
 
   return (
-    <form onSubmit={onSubmit} className="flex w-[560px] max-w-full flex-col gap-4" noValidate>
-      <h1 className="font-label text-[32px] font-normal text-white">Crie sua conta</h1>
+    <form
+      id={ID_FORM_CADASTRO}
+      onSubmit={onSubmit}
+      noValidate
+      className="-mr-2 flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto pr-2"
+    >
+      <fieldset className="flex items-center gap-4">
+        <legend className="sr-only">Tipo de conta</legend>
+        {(['STUDIO', 'PLAYER'] as const).map((opcao) => (
+          <label key={opcao} className="flex cursor-pointer items-center gap-2 text-graphic text-white">
+            <Radio value={opcao} checked={role === opcao} {...register('role', { onChange: clearError })} />
+            {opcao === 'STUDIO' ? 'Estúdio' : 'Jogador'}
+          </label>
+        ))}
+      </fieldset>
 
-      <div className="grid grid-cols-2 gap-x-4 gap-y-3">
-        <Input label={estudio ? 'Seu nome' : 'Nome'} required autoComplete="name" placeholder="Digite..." error={errors.name?.message} {...register('name')} />
-        <Input label="E-mail" required type="email" autoComplete="email" placeholder="Digite..." error={errors.email?.message} {...register('email')} />
-        <Input
-          label="Senha"
-          required
-          type="password"
-          autoComplete="new-password"
-          placeholder="Digite..."
-          hint="8+ caracteres, maiúscula, número e símbolo"
-          error={errors.password?.message}
-          {...register('password')}
-        />
-        <Input
-          label="Confirme a senha"
-          required
-          type="password"
-          autoComplete="new-password"
-          placeholder="Digite..."
-          error={errors.confirmacao?.message}
-          {...register('confirmacao')}
-        />
-
-        {estudio ? (
-          <>
-            <Input
-              label="Nome do estúdio"
-              required
-              autoComplete="organization"
+      <div className="grid grid-cols-2 gap-x-3 gap-y-4">
+        <CampoConta
+          id="cadastro-nome"
+          rotulo={estudio ? 'Nome do estúdio' : 'Nome ou apelido'}
+          obrigatorio
+          erro={errors.name?.message}
+        >
+          <Caixa erro={!!errors.name} icone={<User className="size-5 text-white" />}>
+            <input
+              id="cadastro-nome"
+              autoComplete={estudio ? 'organization' : 'nickname'}
               placeholder="Digite..."
-              className="col-span-2"
-              error={errors.organization?.message}
-              {...register('organization')}
+              className={CLASSE_INPUT}
+              {...register('name')}
             />
-            <Input label="CNPJ" placeholder="Opcional" error={errors.cnpj?.message} {...register('cnpj')} />
-            <Input label="Site" type="url" placeholder="https://" error={errors.website?.message} {...register('website')} />
-          </>
-        ) : (
-          <>
-            <Input label="Data de nascimento" required type="date" error={errors.birthDate?.message} {...register('birthDate')} />
-            <SelectField label="Onde você mora" required defaultValue="" error={errors.location?.message} {...register('location')}>
-              <Opcao valor="" rotulo="Selecione..." />
-              <Opcao valor="BRASIL" rotulo="Brasil" />
-              <Opcao valor="EUA" rotulo="Estados Unidos" />
-            </SelectField>
-            <SelectField label="Como você joga" required defaultValue="" error={errors.playerType?.message} {...register('playerType')}>
-              <Opcao valor="" rotulo="Selecione..." />
-              {PLAYER_TYPES.filter((tipo) => ['CASUAL', 'EXPERIENT', 'TRAINED'].includes(tipo.id)).map((tipo) => (
-                <Opcao key={tipo.id} valor={tipo.id} rotulo={tipo.name} />
+          </Caixa>
+        </CampoConta>
+
+        <CampoConta
+          id="cadastro-email"
+          rotulo={estudio ? 'E-mail profissional' : 'E-mail'}
+          obrigatorio
+          erro={errors.email?.message}
+        >
+          <Caixa erro={!!errors.email} icone={<IconeCampo nome="login-mail" />}>
+            <input
+              id="cadastro-email"
+              type="email"
+              autoComplete="email"
+              placeholder="Digite..."
+              className={CLASSE_INPUT}
+              {...register('email')}
+            />
+          </Caixa>
+        </CampoConta>
+
+        <CampoConta id="cadastro-nascimento" rotulo="Data de nascimento" obrigatorio erro={errors.birthDate?.message}>
+          <Caixa erro={!!errors.birthDate} icone={<CalendarDays className="size-5 text-white" />}>
+            <input
+              id="cadastro-nascimento"
+              type="date"
+              autoComplete="bday"
+              className={cn(CLASSE_INPUT, '[color-scheme:dark]')}
+              {...register('birthDate')}
+            />
+          </Caixa>
+        </CampoConta>
+
+        <CampoConta id="cadastro-pais" rotulo="País / região" obrigatorio erro={errors.location?.message}>
+          <Caixa erro={!!errors.location} icone={<Globe className="size-5 text-white" />} seta>
+            <select
+              id="cadastro-pais"
+              defaultValue=""
+              autoComplete="country"
+              className={cn(CLASSE_INPUT, 'appearance-none pr-6')}
+              {...register('location')}
+            >
+              <option value="" disabled className="bg-orbit-bg">
+                Selecione
+              </option>
+              {PAISES.map((pais) => (
+                <option key={pais.id} value={pais.id} className="bg-orbit-bg">
+                  {pais.rotulo}
+                </option>
               ))}
-            </SelectField>
-            <SelectField label="Seu estilo de jogo" required defaultValue="" error={errors.archetype?.message} {...register('archetype')}>
-              <Opcao valor="" rotulo="Selecione..." />
-              {ARCHETYPES.filter((arquetipo) => arquetipo.id !== 'ALL').map((arquetipo) => (
-                <Opcao key={arquetipo.id} valor={arquetipo.id} rotulo={arquetipo.name} />
-              ))}
-            </SelectField>
-          </>
-        )}
+            </select>
+          </Caixa>
+        </CampoConta>
+
+        <CampoConta id="cadastro-senha" rotulo="Senha" obrigatorio erro={errors.password?.message}>
+          <Caixa erro={!!errors.password} icone={<IconeCampo nome="login-key" />}>
+            <input
+              id="cadastro-senha"
+              type="password"
+              autoComplete="new-password"
+              placeholder="Digite..."
+              className={CLASSE_INPUT}
+              {...register('password')}
+            />
+          </Caixa>
+        </CampoConta>
+
+        <CampoConta id="cadastro-confirmacao" rotulo="Confirmar senha" obrigatorio erro={errors.confirmacao?.message}>
+          <Caixa erro={!!errors.confirmacao} icone={<IconeCampo nome="login-key" />}>
+            <input
+              id="cadastro-confirmacao"
+              type="password"
+              autoComplete="new-password"
+              placeholder="Digite..."
+              className={CLASSE_INPUT}
+              {...register('confirmacao')}
+            />
+          </Caixa>
+        </CampoConta>
       </div>
 
-      {error && (
-        <p
-          role="alert"
-          className="flex items-start gap-2 rounded-lg border border-orbit-error/40 bg-orbit-error/10 p-3 text-graphic text-orbit-error-l"
-        >
-          <AlertCircle className="mt-0.5 size-4 shrink-0" />
-          {error}
-        </p>
-      )}
+      <div className="flex flex-col gap-3">
+        <Controller
+          control={control}
+          name="acceptTerms"
+          render={({ field }) => (
+            <label className="flex cursor-pointer items-center gap-2 text-caption text-white">
+              <Checkbox
+                checked={field.value === true}
+                onCheckedChange={(marcado) => field.onChange(marcado === true)}
+                onBlur={field.onBlur}
+                aria-invalid={!!errors.acceptTerms}
+              />
+              {/* "Termos de Uso" e "Política de Privacidade" não têm frame: o link fica inerte de propósito. */}
+              <span>
+                Li e aceito os <span className="text-orbit-blue underline">Termos de Uso</span> e a{' '}
+                <span className="text-orbit-blue underline">Política de Privacidade</span>.
+              </span>
+            </label>
+          )}
+        />
+        {errors.acceptTerms && (
+          <p className="-mt-2 px-1 text-caption text-orbit-error-l">{errors.acceptTerms.message}</p>
+        )}
 
-      <button
-        type="submit"
-        disabled={ocupado}
-        className="flex h-[58px] w-full shrink-0 items-center justify-center rounded-lg bg-orbit-action font-label text-[24px] font-normal text-white shadow-bevel disabled:opacity-60"
-      >
-        {ocupado ? 'Criando...' : 'Criar conta!'}
-      </button>
+        <Controller
+          control={control}
+          name="marketingOptIn"
+          render={({ field }) => (
+            <label className="flex cursor-pointer items-center gap-2 text-caption text-white">
+              <Checkbox checked={field.value} onCheckedChange={(marcado) => field.onChange(marcado === true)} />
+              Quero receber novidades, conteúdos e atualizações da OrbitPlay.
+            </label>
+          )}
+        />
+      </div>
+
+      {error && <AvisoConta tom="erro">{error}</AvisoConta>}
     </form>
   );
 }
 
-function Opcao({ valor, rotulo }: { valor: string; rotulo: string }) {
-  return (
-    <option value={valor} className="bg-orbit-bg">
-      {rotulo}
-    </option>
-  );
-}

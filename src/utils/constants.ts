@@ -29,9 +29,13 @@ export const STORAGE_KEYS = {
 
 export const ROUTES = {
   login: '/login',
-  /** Cadastro e nova senha: telas provisórias, sem frame no Figma. */
+  /** "Criar conta" — estúdio e jogador no mesmo cartão. */
   register: '/register',
-  /** O mesmo caminho do link que a API manda por e-mail. */
+  /** "Verifique seu e-mail": código do cadastro ou do login com MFA. */
+  verifyEmail: '/verify-email',
+  /** "Esqueceu sua senha?" — pede o link de redefinição. */
+  forgotPassword: '/forgot-password',
+  /** "Criar nova senha": o mesmo caminho do link que a API manda por e-mail. */
   resetPassword: '/reset-password',
   studio: {
     home: '/studio',
@@ -40,6 +44,7 @@ export const ROUTES = {
     newGame: '/studio/games/new',
     newTest: '/studio/tests/new',
     access: '/studio/access',
+    account: '/studio/account',
     report: (testId: string) => `/studio/reports/${testId}`,
     session: (testId: string, sessionId: string) =>
       `/studio/reports/${testId}/sessions/${sessionId}`,
@@ -47,6 +52,7 @@ export const ROUTES = {
   },
   player: {
     home: '/player',
+    account: '/player/account',
     catalog: '/player/games',
     /** O mesmo caminho do link das notificações de saque que a API manda. */
     wallet: '/player/wallet',

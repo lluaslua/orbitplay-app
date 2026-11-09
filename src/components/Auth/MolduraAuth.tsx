@@ -3,8 +3,8 @@ import type { UserRole } from '@/types';
 import { cn, isElectron } from '@/utils/helpers';
 
 /**
- * O cartão do login (Figma `181:8146` e `291:2022`), compartilhado com as telas
- * de conta que ainda não têm frame — cadastro e redefinição de senha.
+ * O cartão do login (Figma `181:8146` e `291:2022`). As outras telas de conta
+ * (cadastro, verificação, recuperação de senha) usam a `MolduraConta`.
  *
  * O frame desenha uma janela de **926×619 com cantos de 24**, flutuando sobre o
  * papel de parede do Windows, e sem barra de título: nada de "OrbitPlay
@@ -51,7 +51,7 @@ export function MolduraAuth({
 }: {
   /** Índice em `ABAS_AUTH`: escolhe a arte e a aba marcada. */
   ativa: number;
-  /** Sem ele, as abas não aparecem (redefinição de senha não tem perfil). */
+  /** Sem ele, as abas não aparecem. */
   onTrocarAba?: (indice: number) => void;
   className?: string;
   children: ReactNode;
@@ -144,7 +144,7 @@ export function MolduraAuth({
  * Só faz algo dentro do Electron. No browser não há janela para controlar,
  * então ele aparece como no desenho, mas fica inerte, sem o realce de hover.
  */
-function BotaoJanela({
+export function BotaoJanela({
   rotulo,
   icone,
   onClick,
