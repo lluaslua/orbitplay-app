@@ -1,13 +1,23 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { EntradaDeAcesso } from '@/components/Studio/GameCreation/useNovoJogoDraft';
 import { get, patch, post, put } from '@/lib/api';
 import { queryKeys } from '@/lib/queryClient';
 import type { CreateGamePayload, Game } from '@/types';
 
-export function useGames(studioId?: string) {
+export type FiltrosJogos = {tab?: string; search?: string};
+
+export function useGames(studioId?: string, filtros: FiltrosJogos = {}) {
+  const {tab, search}  = filtros;
+
   return useQuery({
-    queryKey: queryKeys.games(studioId),
-    queryFn: () => get<Game[]>('/games', studioId ? { studioId } : undefined),
+    queryKey: [...queryKeys.games(studioId), {tab, search}],
+    queryFn: () =>
+      get<Game[]>('/games', {
+        studioId,
+        tab,
+        search: search || undefined,
+  }),
+  placeholderData: keepPreviousData,
   });
 }
 

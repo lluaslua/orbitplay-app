@@ -19,7 +19,7 @@ import type {
   SessionSubmission,
 } from '@/types';
 import { CHAT_MESSAGE_MAX_LENGTH, TEST_MODEL_LABELS } from '@/utils/constants';
-import { clamp, senhaValida, uid } from '@/utils/helpers';
+import { clamp, matchesSearch, senhaValida, uid } from '@/utils/helpers';
 import {
   atualizarGrupo,
   atualizarUsuario,
@@ -282,7 +282,20 @@ export const routes: MockRoute[] = [
   {
     method: 'GET',
     path: '/games',
-    resolve: ({ query }) => ok(listGames(query.get('studioId') ?? undefined)),
+    resolve: ({ query }) => {
+      const search = query.get('search') ?? '';
+      const tab = query.get('tab');
+
+      const filtrados = listGames(query.get('studioId') ?? undefined).filter(
+        (jogo) => matchesSearch(jogo.name, search) || matchesSearch(jogo.studioName, search),
+      );
+
+      const lista = [...filtrados];
+      if (tab === 'popular') lista.sort((a, b) => b.stats.playingNow - a.stats.playingNow);
+      if (tab === 'top-paying') lista.sort((a, b) => b.maxRewardCents - a.maxRewardCents);
+
+      return ok(lista);
+    },
   },
   {
     method: 'POST',

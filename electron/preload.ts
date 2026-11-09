@@ -1,4 +1,5 @@
 import { contextBridge, ipcRenderer } from 'electron';
+import { platform } from 'node:os';
 
 /**
  * Ponte segura entre o renderer (React) e o processo main.
