@@ -21,8 +21,9 @@ import {
   TableRow,
   Tag,
 } from '@/components/UI';
+import { api } from '@/lib/api';
 import { useReport } from '@/hooks/useReports';
-import type { ReportInsight, ReportSessionRow, TestReport } from '@/types';
+import type { ApiError, ReportInsight, ReportSessionRow, ReportStatus, TestReport } from '@/types';
 import { ROUTES } from '@/utils/constants';
 import { cn, formatDate, formatDuration, formatNumber, matchesSearch } from '@/utils/helpers';
 
@@ -35,6 +36,12 @@ import { cn, formatDate, formatDuration, formatNumber, matchesSearch } from '@/u
  * Das cinco abas, só "Geral" tem conteúdo desenhado; as outras ficam inertes.
  */
 const ABAS = ['Geral', 'Todos os testes', 'Todas as Avaliações', 'Insights de IA', 'Orbit Plug-in'];
+
+const ESTADO_DO_RELATORIO: Record<ReportStatus, { rotulo: string; tone: 'amber' | 'topaz' | 'emerald' }> = {
+  EMPTY: { rotulo: 'Sem sessões', tone: 'amber' },
+  PROCESSING: { rotulo: 'Gerando relatório', tone: 'topaz' },
+  READY: { rotulo: 'Pronto', tone: 'emerald' },
+};
 
 export function Relatorio() {
   const { testId } = useParams<{ testId: string }>();
@@ -67,7 +74,7 @@ export function Relatorio() {
         <div className="flex items-center gap-6">
           <h2 className="shrink-0 text-headline text-white">{dados.testTitle}</h2>
           <Tag tone="topaz">{dados.kind}</Tag>
-          <Tag tone="emerald">Finalizado</Tag>
+          <Tag tone={ESTADO_DO_RELATORIO[dados.status].tone}>{ESTADO_DO_RELATORIO[dados.status].rotulo}</Tag>
           <span className="flex-1" />
           <IconButton aria-label="Mais ações" className="shrink-0">
             <Menu className="size-5" />
@@ -139,7 +146,7 @@ export function Relatorio() {
 
       <TabelaSessoes sessions={dados.sessions} total={dados.totalSessions} testId={testId} />
 
-      <CardInsights insights={dados.insights} />
+      <CardInsights insights={dados.insights} testId={testId} />
     </div>
   );
 }
@@ -396,10 +403,17 @@ function TabelaSessoes({
   );
 }
 
+function nomeDoCsv(disposicao: unknown): string | null {
+  const texto = typeof disposicao === 'string' ? disposicao : '';
+  return /filename="([^"]+)"/.exec(texto)?.[1] ?? null;
+}
+
 /** Painel de insights com busca, filtro e exportação. */
-function CardInsights({ insights }: { insights: ReportInsight[] }) {
+function CardInsights({ insights, testId }: { insights: ReportInsight[]; testId: string | undefined }) {
   const [busca, setBusca] = useState('');
   const [categoria, setCategoria] = useState('');
+  const [baixando, setBaixando] = useState(false);
+  const [erroCsv, setErroCsv] = useState<string | null>(null);
 
   const categorias = [...new Set(insights.map((item) => item.category))];
 
@@ -408,6 +422,29 @@ function CardInsights({ insights }: { insights: ReportInsight[] }) {
       (matchesSearch(item.title, busca) || matchesSearch(item.text, busca)) &&
       (categoria === '' || item.category === categoria),
   );
+
+  async function baixarCsv() {
+    if (!testId || baixando) return;
+    setBaixando(true);
+    setErroCsv(null);
+    try {
+      const resposta = await api.get<Blob>(`/reports/${testId}/export`, {
+        params: { format: 'csv' },
+        responseType: 'blob',
+      });
+      const nome = nomeDoCsv(resposta.headers['content-disposition']) ?? 'relatorio.csv';
+      const url = URL.createObjectURL(resposta.data);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = nome;
+      link.click();
+      URL.revokeObjectURL(url);
+    } catch (erro) {
+      setErroCsv((erro as ApiError).message);
+    } finally {
+      setBaixando(false);
+    }
+  }
 
   return (
     <Card className="items-end">
@@ -430,7 +467,7 @@ function CardInsights({ insights }: { insights: ReportInsight[] }) {
 
         <span className="flex-1" />
 
-        <BotoesExportar variante="outline" rotulo="Exportar insights" />
+        <BotoesExportar variante="outline" rotulo="Exportar insights" aoBaixar={() => void baixarCsv()} baixando={baixando} />
 
         <SelectField
           label="Filtrar por categoria"
@@ -448,6 +485,7 @@ function CardInsights({ insights }: { insights: ReportInsight[] }) {
           ))}
         </SelectField>
       </div>
+      {erroCsv && <p className="w-full text-right text-body text-orbit-error-l">{erroCsv}</p>}
 
       <div className="grid w-full grid-cols-2 folgado:grid-cols-3 figma:grid-cols-4 gap-6">
         {filtrados.map((insight) => (

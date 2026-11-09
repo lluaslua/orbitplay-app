@@ -14,34 +14,46 @@ import { cn } from '@/utils/helpers';
  * são as do arquivo: preenchido (`dim`) na maioria dos blocos e só contorno
  * (`outline`) no painel de insights do relatório.
  *
- * Exportar de fato depende de backend, então os botões ficam inertes.
+ * PDF e planilha continuam inertes. O terceiro ícone, o de download, baixa o
+ * CSV quando a tela passa `aoBaixar`.
  */
 export function BotoesExportar({
   quantidade = 3,
   variante = 'dim',
   rotulo = 'Exportar',
   className,
+  aoBaixar,
+  baixando,
 }: {
   quantidade?: number;
   variante?: 'dim' | 'outline';
   rotulo?: string;
   /** O espaço entre os botões varia por tela: 8 nos relatórios, 24 em "Gerenciamento de acessos". */
   className?: string;
+  /** Só o ícone de download (o terceiro). PDF e planilha não têm formato na API. */
+  aoBaixar?: () => void;
+  baixando?: boolean;
 }) {
   const icones = [FileText, FileSpreadsheet, Download].slice(0, quantidade);
 
   return (
     <span className={cn('flex shrink-0 items-center gap-2', className)}>
-      {icones.map((Icone, indice) => (
-        <IconButton
-          key={indice}
-          aria-label={rotulo}
-          title="Ainda não disponível"
-          variant={variante}
-        >
-          <Icone />
-        </IconButton>
-      ))}
+      {icones.map((Icone, indice) => {
+        const download = indice === 2 && !!aoBaixar;
+
+        return (
+          <IconButton
+            key={indice}
+            aria-label={download ? 'Baixar CSV' : rotulo}
+            title={download ? 'Baixar CSV' : 'Ainda não disponível'}
+            variant={variante}
+            disabled={download && baixando}
+            onClick={download ? aoBaixar : undefined}
+          >
+            <Icone />
+          </IconButton>
+        );
+      })}
     </span>
   );
 }

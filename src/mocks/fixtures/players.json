@@ -379,6 +379,9 @@
     "gameId": "game-101",
     "testName": "Pista São Paulo v1.3",
     "testKind": "DEMO ABERTA",
+    "requiresRecording": true,
+    "requiresMicrophone": false,
+    "requiresWebcam": false,
     "rewardCents": 250,
     "testsDone": 4,
     "transcript": [
