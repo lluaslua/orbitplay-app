@@ -12,6 +12,8 @@ import { cn, isElectron } from '@/utils/helpers';
 const LoginPage = lazy(() => import('@/pages/login'));
 const CadastroPage = lazy(() => import('@/pages/cadastro'));
 const RedefinirSenhaPage = lazy(() => import('@/pages/redefinir-senha'));
+const VerificarEmailPage = lazy(() => import('@/pages/verificar-email'));
+const EsqueciSenhaPage = lazy(() => import('@/pages/esqueci-senha'));
 
 const StudioHomePage = lazy(() => import('@/pages/studio/index'));
 const StudioGamesPage = lazy(() => import('@/pages/studio/games'));
@@ -22,8 +24,10 @@ const StudioReportPage = lazy(() => import('@/pages/studio/reports/[testId]'));
 const StudioSessionPage = lazy(() => import('@/pages/studio/reports/[sessionId]'));
 const StudioPluginReportPage = lazy(() => import('@/pages/studio/reports/plugin'));
 const StudioAcessosPage = lazy(() => import('@/pages/studio/acessos'));
+const StudioContaPage = lazy(() => import('@/pages/studio/conta'));
 
 const PlayerHomePage = lazy(() => import('@/pages/player/index'));
+const PlayerContaPage = lazy(() => import('@/pages/player/conta'));
 const PlayerCatalogPage = lazy(() => import('@/pages/player/games'));
 const PlayerGameDetailPage = lazy(() => import('@/pages/player/[gameId]'));
 const PlayerWalletPage = lazy(() => import('@/pages/player/wallet'));
@@ -88,6 +92,8 @@ export default function App() {
           <Route path={ROUTES.login} element={<LoginPage />} />
           <Route path={ROUTES.register} element={<CadastroPage />} />
           <Route path={ROUTES.resetPassword} element={<RedefinirSenhaPage />} />
+          <Route path={ROUTES.verifyEmail} element={<VerificarEmailPage />} />
+          <Route path={ROUTES.forgotPassword} element={<EsqueciSenhaPage />} />
 
           {/* ---------------------------- Estúdio ---------------------------- */}
           <Route element={<MainLayout allow={['STUDIO']} />}>
@@ -97,6 +103,7 @@ export default function App() {
             <Route path="/studio/games/:gameId" element={<StudioGameDetailPage />} />
             <Route path="/studio/tests/new" element={<StudioNewTestPage />} />
             <Route path="/studio/access" element={<StudioAcessosPage />} />
+            <Route path="/studio/account" element={<StudioContaPage />} />
             <Route path="/studio/reports/:testId" element={<StudioReportPage />} />
             <Route
               path="/studio/reports/:testId/sessions/:sessionId"
@@ -108,6 +115,7 @@ export default function App() {
           {/* ---------------------------- Jogador ---------------------------- */}
           <Route element={<MainLayout allow={['PLAYER']} />}>
             <Route path="/player" element={<PlayerHomePage />} />
+            <Route path="/player/account" element={<PlayerContaPage />} />
             <Route path="/player/games" element={<PlayerCatalogPage />} />
             <Route path="/player/games/:gameId" element={<PlayerGameDetailPage />} />
             <Route path="/player/wallet" element={<PlayerWalletPage />} />

@@ -177,6 +177,10 @@ Pendência conhecida: `useStartTest` e `useSubmitSession` existem e a rota mocka
 - sem sessão, qualquer rota autenticada volta para `/login`
 - item de menu sem tela no Figma fica inerte de propósito: no estúdio, Plug-in Telemetria, Benchmark, Tutorial e formação e Comunidade; no tester, Meus testes e ganhos, Tutorial e formação e Comunidade
 - perfil novo, permissão nova ou tela que cruza os dois perfis não entra sem frame no Figma
+- criar conta (`/register`, o radio escolhe estúdio ou jogador) não entra direto: a conta nasce pendente, "Verifique seu e-mail" (`/verify-email`) pede o código de 6 dígitos (`POST /auth/verify-email`) e só o "Continuar" de "E-mail verificado!" aplica a sessão. Login de cadastro não confirmado responde `EMAIL_NOT_VERIFIED` e cai na mesma tela com um código novo
+- recuperar a senha: "Esqueci minha senha" abre "Esqueceu sua senha?" (`/forgot-password`), o link do e-mail abre "Criar nova senha" (`/reset-password?token=`) e termina em "Senha redefinida!"
+- Minha conta pelo menu do avatar (`/studio/account`, `/player/account`): dados, foto, notificações, "MFA por E-mail" e "Alterar senha" (modal, sem frame). Nome e site do estúdio só com permissão MANAGE; o e-mail é só leitura. Com MFA ligado o login devolve `mfaRequired` e o código vai por `POST /auth/verify-login`, na mesma tela de verificação
+- as telas de conta não têm mock: com `VITE_USE_MOCKS=true` elas não funcionam, rode com a API
 
 ## Rotas e escopo de telas
 

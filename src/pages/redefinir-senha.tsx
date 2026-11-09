@@ -1,16 +1,23 @@
 import { useState } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { AlertCircle, ArrowRight, CheckCircle2 } from 'lucide-react';
-import { MolduraAuth } from '@/components/Auth/MolduraAuth';
-import { Input } from '@/components/UI';
+import {
+  AvisoConta,
+  BotaoConta,
+  Caixa,
+  CampoConta,
+  CartaoSucesso,
+  CLASSE_INPUT,
+  IconeCampo,
+  MolduraConta,
+} from '@/components/Auth/MolduraConta';
 import { useAuth } from '@/hooks/useAuth';
 import { ROUTES } from '@/utils/constants';
 import { senhaValida } from '@/utils/helpers';
 
-const esquema = z
+const esquemaNovaSenha = z
   .object({
     password: z
       .string()
@@ -22,100 +29,97 @@ const esquema = z
     path: ['confirmacao'],
   });
 
-type Valores = z.infer<typeof esquema>;
+type Valores = z.infer<typeof esquemaNovaSenha>;
+
+const ID_FORM = 'form-nova-senha';
 
 /**
- * Nova senha pelo link do e-mail — tela provisória, sem frame no Figma. É o
- * fim do "Esqueci minha senha" e também do convite de Gerenciamento de acessos:
- * a conta convidada fica ativa quando a pessoa define a senha aqui. O link vem
- * da API como `/#/reset-password?token=...`.
+ * "Criar nova senha" e "Senha redefinida!" — Figma: segundo e terceiro cartões
+ * da recuperação. É o fim do "Esqueceu sua senha?" e também do convite de
+ * Gerenciamento de acessos: a conta convidada fica ativa quando a pessoa define
+ * a senha aqui. O link vem da API como `/#/reset-password?token=...`.
+ *
+ * O texto abaixo do título repete o do "Esqueceu sua senha?" porque é o que o
+ * frame traz (parece cópia do cartão anterior). Fica igual até o design revisar.
  */
 export default function RedefinirSenhaPage() {
   const [params] = useSearchParams();
   const token = params.get('token') ?? '';
   const { resetPassword } = useAuth();
-  const [resultado, setResultado] = useState<{ ok: boolean; mensagem: string } | null>(null);
+  const navigate = useNavigate();
+  const [salva, setSalva] = useState(false);
+  const [erro, setErro] = useState<string | null>(null);
 
   const {
     register,
     handleSubmit,
     formState: { errors, isSubmitting },
-  } = useForm<Valores>({ resolver: zodResolver(esquema), mode: 'onBlur' });
+  } = useForm<Valores>({ resolver: zodResolver(esquemaNovaSenha), mode: 'onBlur' });
 
   const onSubmit = handleSubmit(async ({ password }) => {
+    setErro(null);
     try {
-      setResultado({ ok: true, mensagem: await resetPassword(token, password) });
-    } catch (erro) {
-      setResultado({ ok: false, mensagem: (erro as { message?: string }).message ?? 'Não foi possível trocar a senha.' });
+      await resetPassword(token, password);
+      setSalva(true);
+    } catch (falha) {
+      setErro((falha as { message?: string }).message ?? 'Não foi possível trocar a senha.');
     }
   });
 
+  if (salva) {
+    return (
+      <CartaoSucesso
+        titulo="Senha redefinida!"
+        texto="Sua nova senha foi salva. Agora você já pode acessar sua conta."
+        rotuloBotao="Entrar!"
+        onClick={() => navigate(ROUTES.login, { replace: true })}
+      />
+    );
+  }
+
   return (
-    <MolduraAuth ativa={0}>
-      <div className="relative flex w-[514px] max-w-full flex-col gap-4">
-        <h1 className="font-label text-[32px] font-normal text-white">Nova senha</h1>
-
-        {!token ? (
-          <Aviso ok={false} mensagem="Este link está incompleto. Peça um novo em “Esqueci minha senha”." />
-        ) : resultado?.ok ? (
-          <Aviso ok mensagem={resultado.mensagem} />
-        ) : (
-          <form onSubmit={onSubmit} className="flex flex-col gap-4" noValidate>
-            <Input
-              label="Nova senha"
-              type="password"
-              autoComplete="new-password"
-              placeholder="Digite..."
-              hint="8+ caracteres, maiúscula, número e símbolo"
-              error={errors.password?.message}
-              {...register('password')}
-            />
-            <Input
-              label="Confirme a senha"
-              type="password"
-              autoComplete="new-password"
-              placeholder="Digite..."
-              error={errors.confirmacao?.message}
-              {...register('confirmacao')}
-            />
-
-            {resultado && <Aviso ok={false} mensagem={resultado.mensagem} />}
-
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="flex h-[58px] w-full items-center justify-center rounded-lg bg-orbit-action font-label text-[24px] font-normal text-white shadow-bevel disabled:opacity-60"
-            >
-              {isSubmitting ? 'Salvando...' : 'Salvar senha'}
-            </button>
-          </form>
-        )}
-      </div>
-
-      <Link
-        to={ROUTES.login}
-        className="relative flex w-fit items-center gap-1 text-button text-orbit-blue-deep hover:underline"
-      >
-        Voltar para o login
-        <ArrowRight className="size-5" />
-      </Link>
-    </MolduraAuth>
-  );
-}
-
-function Aviso({ ok, mensagem }: { ok: boolean; mensagem: string }) {
-  const Icone = ok ? CheckCircle2 : AlertCircle;
-  return (
-    <p
-      role={ok ? 'status' : 'alert'}
-      className={
-        ok
-          ? 'flex items-start gap-2 rounded-lg border border-orbit-success/40 bg-orbit-success/10 p-3 text-graphic text-orbit-success'
-          : 'flex items-start gap-2 rounded-lg border border-orbit-error/40 bg-orbit-error/10 p-3 text-graphic text-orbit-error-l'
+    <MolduraConta
+      titulo="Criar nova senha"
+      aoVoltar={() => navigate(ROUTES.login, { replace: true })}
+      acao={
+        token && (
+          <BotaoConta form={ID_FORM} ocupado={isSubmitting}>
+            {isSubmitting ? 'Salvando...' : 'Redefinir senha'}
+          </BotaoConta>
+        )
       }
     >
-      <Icone className="mt-0.5 size-4 shrink-0" />
-      {mensagem}
-    </p>
+      <form id={ID_FORM} onSubmit={onSubmit} noValidate className="flex flex-col gap-4">
+        <p className="text-graphic text-white">
+          Informe o e-mail cadastrado e enviaremos as instruções para criar uma nova senha.
+        </p>
+
+        {!token ? (
+          <AvisoConta tom="erro">Este link está incompleto. Peça um novo em “Esqueci minha senha”.</AvisoConta>
+        ) : (
+          <div className="grid grid-cols-2 gap-x-3">
+            <CampoConta id="nova-senha" rotulo="Nova senha" obrigatorio erro={errors.password?.message}>
+              <Caixa erro={!!errors.password} icone={<IconeCampo nome="login-key" />}>
+                <input id="nova-senha" type="password" autoComplete="new-password" placeholder="Digite..." className={CLASSE_INPUT} {...register('password')} />
+              </Caixa>
+            </CampoConta>
+            <CampoConta id="confirmar-nova-senha" rotulo="Confirmar nova senha" obrigatorio erro={errors.confirmacao?.message}>
+              <Caixa erro={!!errors.confirmacao} icone={<IconeCampo nome="login-key" />}>
+                <input
+                  id="confirmar-nova-senha"
+                  type="password"
+                  autoComplete="new-password"
+                  placeholder="Digite..."
+                  className={CLASSE_INPUT}
+                  {...register('confirmacao')}
+                />
+              </Caixa>
+            </CampoConta>
+          </div>
+        )}
+
+        {erro && <AvisoConta tom="erro">{erro}</AvisoConta>}
+      </form>
+    </MolduraConta>
   );
 }

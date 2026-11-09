@@ -53,6 +53,14 @@ describe('menu do perfil', () => {
     expect(screen.getByTestId('rota').textContent).toBe('/studio/access');
   });
 
+  it('abre a Minha conta do próprio perfil pelo menu', () => {
+    abrirMenuDoPerfil(tester);
+
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Minha conta' }));
+
+    expect(screen.getByTestId('rota').textContent).toBe('/player/account');
+  });
+
   it('encerra a sessão ao escolher sair', () => {
     abrirMenuDoPerfil(estudio);
 
